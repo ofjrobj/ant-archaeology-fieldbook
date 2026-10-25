@@ -28,7 +28,7 @@ const source = Object.fromEntries(
     ]),
   ),
 );
-const imageTypes = new Map([
+const assetTypes = new Map([
   [".png", "image/png"],
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
@@ -36,6 +36,10 @@ const imageTypes = new Map([
   [".avif", "image/avif"],
   [".gif", "image/gif"],
   [".svg", "image/svg+xml"],
+  [".ttf", "font/ttf"],
+  [".woff", "font/woff"],
+  [".woff2", "font/woff2"],
+  [".txt", "text/plain; charset=utf-8"],
 ]);
 const assetDirectory = path.join(root, "assets");
 const assetInfo = await lstat(assetDirectory).catch((error) => {
@@ -48,12 +52,10 @@ const assets = new Map();
 for (const entry of assetInfo
   ? await readdir(assetDirectory, { withFileTypes: true })
   : []) {
-  const type = imageTypes.get(path.extname(entry.name).toLowerCase());
+  const type = assetTypes.get(path.extname(entry.name).toLowerCase());
   if (!/^[a-z\d][a-z\d._-]*$/i.test(entry.name) || !type) continue;
   if (!entry.isFile())
-    throw new Error(
-      `이미지 파일은 일반 파일이어야 합니다: assets/${entry.name}`,
-    );
+    throw new Error(`에셋은 일반 파일이어야 합니다: assets/${entry.name}`);
   const buffer = await readFile(path.join(assetDirectory, entry.name));
   assets.set(`assets/${entry.name}`, {
     buffer,
@@ -87,19 +89,36 @@ for (const filename of files.filter((file) => file.endsWith(".js"))) {
   if (count !== 1)
     throw new Error(`index.html에서 ${filename} 참조를 하나 찾아야 합니다.`);
 }
-// CSS, JavaScript 문자열, 인라인 SVG의 이미지 경로도 단일 파일 안에 포함합니다.
+// CSS, JavaScript 문자열, 인라인 SVG의 이미지와 글꼴 경로도 단일 파일 안에 포함합니다.
 standalone = standalone.replace(
-  /(?:\.\/)?assets\/[a-z\d][a-z\d._-]*\.(?:png|jpe?g|webp|avif|gif|svg)(?:\?[^"'`\s)<>\\#]*)?(?:#[^"'`\s)<>\\]*)?/gi,
+  /(?:\.\/)?assets\/[a-z\d][a-z\d._-]*\.(?:png|jpe?g|webp|avif|gif|svg|ttf|woff2?|txt)(?:\?[^"'`\s)<>\\#]*)?(?:#[^"'`\s)<>\\]*)?/gi,
   (reference) => {
     const filename = reference.replace(/^\.\//, "").split(/[?#]/)[0];
     const asset = assets.get(filename);
-    if (!asset) throw new Error(`참조한 이미지가 없습니다: ${reference}`);
+    if (!asset) throw new Error(`참조한 에셋이 없습니다: ${reference}`);
     const fragment = reference.includes("#")
       ? reference.slice(reference.indexOf("#"))
       : "";
     return asset.url + fragment;
   },
 );
+
+// 오프라인 배포에도 글꼴 저작권과 라이선스 전문을 읽을 수 있게 보존합니다.
+const licenses = [...assets]
+  .filter(
+    ([filename]) =>
+      /(?:^|[-_.])(?:ofl|licen[cs]e)(?:[-_.]|$)/i.test(filename) &&
+      filename.endsWith(".txt"),
+  )
+  .map(
+    ([filename, asset]) => `${filename}\n\n${asset.buffer.toString("utf8")}`,
+  );
+if (licenses.length) {
+  const licenseBlock = `<script type="text/plain" id="bundled-font-licenses">\n${licenses.join("\n\n").replace(/<\/script/gi, "<\\/script")}\n</script>`;
+  standalone = /<\/body\s*>/i.test(standalone)
+    ? standalone.replace(/<\/body\s*>/i, () => `${licenseBlock}\n</body>`)
+    : `${standalone}\n${licenseBlock}`;
+}
 
 // dist가 다른 디렉터리로 연결된 심볼릭 링크라면 쓰거나 삭제하지 않습니다.
 const existing = await lstat(dist).catch((error) => {

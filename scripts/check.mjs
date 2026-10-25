@@ -42,7 +42,7 @@ for (const match of css.matchAll(
 for (const filename of scripts.filter((file) => !file.startsWith("scripts/"))) {
   const source = await readFile(path.join(root, filename), "utf8");
   for (const match of source.matchAll(
-    /(?:\.\/)?assets\/[a-z\d][a-z\d._-]*\.(?:png|jpe?g|webp|avif|gif|svg)(?:\?[^"'`\s)<>\\#]*)?(?:#[^"'`\s)<>\\]*)?/gi,
+    /(?:\.\/)?assets\/[a-z\d][a-z\d._-]*\.(?:png|jpe?g|webp|avif|gif|svg|ttf|woff2?|txt)(?:\?[^"'`\s)<>\\#]*)?(?:#[^"'`\s)<>\\]*)?/gi,
   ))
     references.add(match[0]);
 }

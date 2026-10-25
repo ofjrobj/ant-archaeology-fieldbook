@@ -14,7 +14,7 @@ const files = new Map([
   ["simulation.js", "text/javascript; charset=utf-8"],
   ["game.js", "text/javascript; charset=utf-8"],
 ]);
-const imageTypes = new Map([
+const assetTypes = new Map([
   [".png", "image/png"],
   [".jpg", "image/jpeg"],
   [".jpeg", "image/jpeg"],
@@ -22,11 +22,15 @@ const imageTypes = new Map([
   [".avif", "image/avif"],
   [".gif", "image/gif"],
   [".svg", "image/svg+xml"],
+  [".ttf", "font/ttf"],
+  [".woff", "font/woff"],
+  [".woff2", "font/woff2"],
+  [".txt", "text/plain; charset=utf-8"],
 ]);
 const assetDirectory = path.join(rootPath, "assets");
 function assetType(filename) {
   if (!/^assets\/[a-z\d][a-z\d._-]*$/i.test(filename)) return undefined;
-  return imageTypes.get(path.extname(filename).toLowerCase());
+  return assetTypes.get(path.extname(filename).toLowerCase());
 }
 
 let portValue = process.env.PORT ?? "4173";
@@ -92,8 +96,8 @@ const server = http.createServer(async (request, response) => {
 
   // 서비스할 파일을 명시적으로 제한하여 .git, 숨김 파일, 상위 경로를 노출하지 않습니다.
   const filename = pathname === "/" ? "index.html" : pathname.slice(1);
-  const imageType = assetType(filename);
-  const contentType = files.get(filename) ?? imageType;
+  const assetMime = assetType(filename);
+  const contentType = files.get(filename) ?? assetMime;
   if (!contentType) {
     response.writeHead(404);
     response.end("Not found");
@@ -102,12 +106,12 @@ const server = http.createServer(async (request, response) => {
 
   try {
     const filepath = await realpath(path.join(root, filename));
-    if (path.dirname(filepath) !== (imageType ? assetDirectory : rootPath)) {
+    if (path.dirname(filepath) !== (assetMime ? assetDirectory : rootPath)) {
       response.writeHead(403);
       response.end("Forbidden");
       return;
     }
-    let content = await readFile(filepath, imageType ? undefined : "utf8");
+    let content = await readFile(filepath, assetMime ? undefined : "utf8");
     if (filename === "index.html") {
       content = /<\/body\s*>/i.test(content)
         ? content.replace(/<\/body\s*>/i, () => `${reloadScript}\n</body>`)
