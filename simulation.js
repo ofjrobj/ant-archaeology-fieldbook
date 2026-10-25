@@ -12,6 +12,8 @@
 
   const TAU = Math.PI * 2;
   const ANT_RADIUS = 4;
+  const MAX_ANTS = 300;
+  const MAX_POPULATION = 2000;
   const MAX_OBJECTS = 28;
   const MAX_PATHS = 20;
   const clamp = (n, low, high) => Math.max(low, Math.min(high, n));
@@ -41,17 +43,37 @@
   function create(options = {}) {
     const width = Math.max(200, Number(options.width) || 1000);
     const height = Math.max(160, Number(options.height) || 620);
-    const count = clamp(Math.floor(Number(options.count) || 36), 1, 160);
-    const random = randomGenerator(
-      options.seed === undefined ? 1 : options.seed,
+    const populationMode = options.populationMode === true;
+    const count = clamp(
+      Math.floor(
+        Number(options.count) || (populationMode ? MAX_POPULATION : 36),
+      ),
+      1,
+      populationMode ? MAX_POPULATION : MAX_ANTS,
     );
+    const initialCount = populationMode
+      ? clamp(Math.floor(Number(options.initialCount) || 200), 1, count)
+      : count;
+    const seed = Number(options.seed === undefined ? 1 : options.seed) >>> 0;
+    const random = randomGenerator(seed);
     const model = {
       width,
       height,
+      seed,
+      populationMode,
       total: count,
+      active: initialCount,
+      reserve: count - initialCount,
       escaped: 0,
       time: 0,
       won: false,
+      lost: populationMode && initialCount === count,
+      arrivalRate: populationMode
+        ? Math.max(0, Number(options.arrivalRate ?? 30) || 0)
+        : 0,
+      returnDelay: Math.max(0.025, Number(options.returnDelay) || 60),
+      arrivalAccumulator: 0,
+      nextWaitingIndex: initialCount,
       ants: [],
       objects: [],
       paths: [],
@@ -64,7 +86,9 @@
       },
     };
     for (let id = 0; id < count; id++) {
-      const phase = (id / count) * TAU;
+      const phase = populationMode
+        ? (id * Math.PI * (3 - Math.sqrt(5))) % TAU
+        : (id / count) * TAU;
       const speed = 42 + random() * 7;
       const personality = random() * TAU;
       const offset = trailOffset({ personality }, 0, phase);
@@ -83,11 +107,69 @@
         speed,
         travelAngle: angle,
         personality,
-        escaped: false,
+        status: id < initialCount ? "active" : "waiting",
+        escaped: id >= initialCount,
+        returnAt: null,
         released: false,
       });
     }
     return model;
+  }
+
+  // Add to the current round without resetting its progress or tools. The cap
+  // counts every ant spawned this round, including those already safely outside.
+  // A numeric return lets the UI report partial additions at the population cap.
+  function addAnts(model, amount) {
+    if (
+      model.won ||
+      model.lost ||
+      model.populationMode ||
+      !Number.isFinite(amount) ||
+      amount < 1
+    )
+      return 0;
+    const added = Math.min(Math.floor(amount), MAX_ANTS - model.total);
+    if (added <= 0) return 0;
+    // Older saved rounds predate model.seed. Their first ant provides a stable
+    // fallback, so saving/reloading still produces exactly the same additions.
+    const seed = Number.isFinite(model.seed)
+      ? model.seed
+      : Math.floor((model.ants[0]?.personality || 0) * 100000000);
+    let id =
+      model.ants.reduce((highest, ant) => Math.max(highest, ant.id), -1) + 1;
+    const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+    for (let index = 0; index < added; index++, id++) {
+      const random = randomGenerator(seed ^ Math.imul(id + 1, 0x9e3779b1));
+      const phase = (id * goldenAngle + model.time * 0.1) % TAU;
+      const speed = 42 + random() * 7;
+      const personality = random() * TAU;
+      const offset = trailOffset({ personality }, model.time, phase);
+      const angle = Math.atan2(
+        model.orbit.ry * Math.cos(phase),
+        -model.orbit.rx * Math.sin(phase),
+      );
+      // The golden-angle sequence spreads any batch around the existing loop;
+      // old ants keep their exact positions and the player keeps their work.
+      model.ants.push({
+        id,
+        x: model.orbit.x + Math.cos(phase) * (model.orbit.rx + offset),
+        y: model.orbit.y + Math.sin(phase) * (model.orbit.ry + offset),
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        angle,
+        phase,
+        speed,
+        travelAngle: angle,
+        personality,
+        status: "active",
+        escaped: false,
+        returnAt: null,
+        released: false,
+      });
+    }
+    model.total += added;
+    model.active = model.total - model.escaped;
+    return added;
   }
 
   function cleanPoint(model, point) {
@@ -102,7 +184,8 @@
   // Lines keep their direction: ants follow a scent trail toward its LAST point.
   // The last point may lie just beyond the board, making an explicit exit route.
   function applyTool(model, type, points) {
-    if (model.won || !Array.isArray(points) || !points.length) return false;
+    if (model.won || model.lost || !Array.isArray(points) || !points.length)
+      return false;
     if (type === "barrier" || type === "trail") {
       const clean = [];
       for (const point of points) {
@@ -168,16 +251,60 @@
     };
   }
 
-  function nearestOnPath(point, path) {
-    let nearest = null;
+  // Geometry caches are deliberately outside the saved model and rebuild after reload.
+  const pathGeometry = new WeakMap();
+  function geometryFor(path) {
+    let geometry = pathGeometry.get(path);
+    if (geometry) return geometry;
+    const segments = [];
+    const bounds = {
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity,
+    };
     for (let index = 0; index < path.points.length - 1; index++) {
-      const current = closestSegment(
-        point,
-        path.points[index],
-        path.points[index + 1],
-      );
-      if (!nearest || current.distance < nearest.distance)
-        nearest = { ...current, index };
+      const a = path.points[index];
+      const b = path.points[index + 1];
+      const segment = {
+        a,
+        b,
+        index,
+        minX: Math.min(a.x, b.x),
+        maxX: Math.max(a.x, b.x),
+        minY: Math.min(a.y, b.y),
+        maxY: Math.max(a.y, b.y),
+      };
+      segments.push(segment);
+      bounds.minX = Math.min(bounds.minX, segment.minX);
+      bounds.maxX = Math.max(bounds.maxX, segment.maxX);
+      bounds.minY = Math.min(bounds.minY, segment.minY);
+      bounds.maxY = Math.max(bounds.maxY, segment.maxY);
+    }
+    geometry = { bounds, segments };
+    pathGeometry.set(path, geometry);
+    return geometry;
+  }
+
+  function boxDistanceSquared(point, box) {
+    const dx = Math.max(box.minX - point.x, 0, point.x - box.maxX);
+    const dy = Math.max(box.minY - point.y, 0, point.y - box.maxY);
+    return dx * dx + dy * dy;
+  }
+
+  function nearestOnPath(point, path, maxDistance = Infinity) {
+    const geometry = geometryFor(path);
+    let bestSquared = maxDistance * maxDistance;
+    let nearest = null;
+    if (boxDistanceSquared(point, geometry.bounds) >= bestSquared) return null;
+    for (const segment of geometry.segments) {
+      if (boxDistanceSquared(point, segment) >= bestSquared) continue;
+      const current = closestSegment(point, segment.a, segment.b);
+      const squared = current.distance * current.distance;
+      if (squared < bestSquared) {
+        bestSquared = squared;
+        nearest = { ...current, index: segment.index };
+      }
     }
     return nearest;
   }
@@ -219,7 +346,7 @@
         length(point.x - object.x, point.y - object.y) > reach + object.radius,
     );
     model.paths = model.paths.filter(
-      (path) => nearestOnPath(point, path).distance > reach + path.radius,
+      (path) => !nearestOnPath(point, path, reach + path.radius),
     );
     return before !== model.objects.length + model.paths.length;
   }
@@ -250,7 +377,7 @@
     };
   }
 
-  function steer(model, ant, input) {
+  function steer(model, ant, input, neighborGrid) {
     let desired;
     if (ant.released) {
       const angle =
@@ -288,9 +415,9 @@
     let trailNearest = null;
     for (const path of model.paths) {
       if (path.type !== "trail") continue;
-      const nearest = nearestOnPath(ant, path);
+      const nearest = nearestOnPath(ant, path, 118);
       if (
-        nearest.distance < 118 &&
+        nearest &&
         (!trailNearest || nearest.distance <= trailNearest.distance)
       ) {
         trail = path;
@@ -354,15 +481,24 @@
     }
 
     // Small separation keeps gathered ants legible without driving an idle colony out.
-    for (const other of model.ants) {
-      if (other === ant || other.escaped) continue;
-      const dx = ant.x - other.x;
-      const dy = ant.y - other.y;
-      const d = length(dx, dy);
-      if (d > 0.01 && d < 13) {
-        const force = (13 - d) * 2.4;
-        desired.x += (dx / d) * force;
-        desired.y += (dy / d) * force;
+    const cellX = Math.floor(ant.x / 26);
+    const cellY = Math.floor(ant.y / 26);
+    for (let cx = cellX - 1; cx <= cellX + 1; cx++) {
+      for (let cy = cellY - 1; cy <= cellY + 1; cy++) {
+        const neighbors = neighborGrid.get(cx * 4096 + cy);
+        if (!neighbors) continue;
+        for (const other of neighbors) {
+          if (other === ant || other.escaped) continue;
+          const dx = ant.x - other.x;
+          const dy = ant.y - other.y;
+          const squared = dx * dx + dy * dy;
+          if (squared > 0.0001 && squared < 169) {
+            const d = Math.sqrt(squared);
+            const force = (13 - d) * 2.4;
+            desired.x += (dx / d) * force;
+            desired.y += (dy / d) * force;
+          }
+        }
       }
     }
     if (affected) ant.released = true;
@@ -379,6 +515,7 @@
   function resolveCollisions(model, ant, previous) {
     let collided = false;
     for (let pass = 0; pass < 3; pass++) {
+      let passCollided = false;
       for (const object of model.objects) {
         if (object.type !== "pebble") continue;
         const dx = ant.x - object.x;
@@ -393,14 +530,18 @@
         ant.y = object.y + ny * (radius + 0.1);
         deflect(ant, nx, ny);
         collided = true;
+        passCollided = true;
       }
       for (const path of model.paths) {
         if (path.type !== "barrier") continue;
-        for (let i = 0; i < path.points.length - 1; i++) {
-          const a = path.points[i];
-          const b = path.points[i + 1];
+        const geometry = geometryFor(path);
+        const radius = ANT_RADIUS + path.radius;
+        if (boxDistanceSquared(ant, geometry.bounds) >= radius * radius)
+          continue;
+        for (const segment of geometry.segments) {
+          if (boxDistanceSquared(ant, segment) >= radius * radius) continue;
+          const { a, b } = segment;
           const closest = closestSegment(ant, a, b);
-          const radius = ANT_RADIUS + path.radius;
           if (closest.distance >= radius) continue;
           // Use the pre-move side if a wall was drawn directly over an ant.
           const oldClosest = closestSegment(previous, a, b);
@@ -422,8 +563,10 @@
           ant.y = closest.y + ny * (radius + 0.15);
           deflect(ant, nx, ny);
           collided = true;
+          passCollided = true;
         }
       }
+      if (!passCollided) break;
     }
     if (collided) {
       ant.released = true;
@@ -445,17 +588,105 @@
     }
   }
 
+  function activateWaitingAnt(model, ant) {
+    const along = 0.1 + ((ant.id * 0.618033988749895) % 1) * 0.8;
+    const edge = ant.id % 4;
+    ant.x = edge === 0 ? 3 : edge === 1 ? model.width - 3 : model.width * along;
+    ant.y =
+      edge === 2 ? 3 : edge === 3 ? model.height - 3 : model.height * along;
+    const angle = Math.atan2(model.orbit.y - ant.y, model.orbit.x - ant.x);
+    ant.vx = Math.cos(angle) * ant.speed;
+    ant.vy = Math.sin(angle) * ant.speed;
+    ant.angle = angle;
+    ant.travelAngle = angle;
+    ant.phase = Math.atan2(
+      (ant.y - model.orbit.y) / model.orbit.ry,
+      (ant.x - model.orbit.x) / model.orbit.rx,
+    );
+    ant.status = "active";
+    ant.escaped = false;
+    ant.released = false;
+    ant.returnAt = null;
+    model.reserve--;
+    model.active++;
+  }
+
+  function returnAnt(model, ant) {
+    const inset = 3;
+    ant.x = clamp(ant.exitX, inset, model.width - inset);
+    ant.y = clamp(ant.exitY, inset, model.height - inset);
+    if (ant.exitEdge === "left") ant.x = inset;
+    else if (ant.exitEdge === "right") ant.x = model.width - inset;
+    else if (ant.exitEdge === "top") ant.y = inset;
+    else ant.y = model.height - inset;
+    const angle = Math.atan2(model.orbit.y - ant.y, model.orbit.x - ant.x);
+    ant.vx = Math.cos(angle) * ant.speed;
+    ant.vy = Math.sin(angle) * ant.speed;
+    ant.angle = angle;
+    ant.travelAngle = angle;
+    ant.status = "active";
+    ant.escaped = false;
+    ant.released = false;
+    ant.returnAt = null;
+    model.escaped--;
+    model.active++;
+  }
+
+  // Every clock uses simulation time: pausing or closing a tab cannot advance
+  // arrivals or an individual ant's sixty-second outside interval.
+  function advancePopulation(model, dt) {
+    for (const ant of model.ants) {
+      if (ant.status === "outside" && ant.returnAt <= model.time + 1e-9)
+        returnAnt(model, ant);
+    }
+    if (model.reserve > 0 && model.arrivalRate > 0) {
+      model.arrivalAccumulator += dt * model.arrivalRate;
+      const arriving = Math.min(
+        model.reserve,
+        Math.floor(model.arrivalAccumulator + 1e-9),
+      );
+      model.arrivalAccumulator -= arriving;
+      for (let i = 0; i < arriving; i++) {
+        const ant = model.ants[model.nextWaitingIndex++];
+        activateWaitingAnt(model, ant);
+      }
+    }
+    model.lost = model.reserve === 0 && model.active === model.total;
+  }
+
+  function buildNeighborGrid(ants) {
+    const grid = new Map();
+    for (const ant of ants) {
+      if (ant.escaped) continue;
+      const key = Math.floor(ant.x / 26) * 4096 + Math.floor(ant.y / 26);
+      const cell = grid.get(key);
+      if (cell) cell.push(ant);
+      else grid.set(key, [ant]);
+    }
+    return grid;
+  }
+
   function step(model, dt, input = {}) {
-    if (model.won || !Number.isFinite(dt) || dt <= 0) return model;
+    if (model.won || model.lost || !Number.isFinite(dt) || dt <= 0)
+      return model;
+    if (!model.populationMode) {
+      model.reserve = 0;
+      model.active = model.total - model.escaped;
+    }
     // Discard excess tab-suspension time, while allowing normal 250 ms slow frames.
     const duration = Math.min(dt, 0.25);
     const steps = Math.ceil(duration / 0.025);
     const substep = duration / steps;
     for (let iteration = 0; iteration < steps; iteration++) {
       model.time += substep;
+      if (model.populationMode) {
+        advancePopulation(model, substep);
+        if (model.lost) break;
+      }
+      const neighborGrid = buildNeighborGrid(model.ants);
       for (const ant of model.ants) {
         if (ant.escaped) continue;
-        const desired = steer(model, ant, input);
+        const desired = steer(model, ant, input, neighborGrid);
         const response = 1 - Math.exp(-substep * 8);
         ant.vx += (desired.x - ant.vx) * response;
         ant.vy += (desired.y - ant.vy) * response;
@@ -474,10 +705,25 @@
           ant.y > model.height
         ) {
           ant.escaped = true;
+          ant.status = "outside";
+          ant.exitEdge =
+            ant.x < 0
+              ? "left"
+              : ant.x > model.width
+                ? "right"
+                : ant.y < 0
+                  ? "top"
+                  : "bottom";
+          ant.exitX = ant.x;
+          ant.exitY = ant.y;
+          ant.returnAt = model.populationMode
+            ? model.time + model.returnDelay
+            : null;
           model.escaped++;
+          model.active--;
         }
       }
-      if (model.escaped === model.total) {
+      if (model.reserve === 0 && model.escaped === model.total) {
         model.won = true;
         break;
       }
@@ -485,5 +731,5 @@
     return model;
   }
 
-  return { create, step, applyTool, eraseAt, clearTools };
+  return { create, addAnts, step, applyTool, eraseAt, clearTools };
 });

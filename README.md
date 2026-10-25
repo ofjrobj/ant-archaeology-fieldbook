@@ -1,6 +1,6 @@
 # Out of line
 
-A hand-painted ant-routing game on a richly textured leaf, with articulated ants, natural object sprites, and six tools. Break the trail and help every ant leave the garden.
+An interactive living leaf. Guide a population of 2,000 ants with six dimensional tools while the surface slowly moves and changes color with crowding.
 
 - [Play](https://ofjrobj.github.io/ant-archaeology-fieldbook/)
 - [Edit in your browser](https://github.dev/ofjrobj/ant-archaeology-fieldbook)
@@ -19,7 +19,13 @@ Choose a tool and experiment on the field:
 | Scent  | Draw a directional lure toward an edge. |
 | Breeze | Hold to blow the ants along.            |
 
-Use the eraser to remove a tool, clear tools to empty the field, or restart. Pause at any time or switch to fullscreen for a larger playing field. All four edges are exits. You win when all 120 ants leave.
+Start with 200 ants. Another 30 arrive each second until all 2,000 have entered. All four screen edges are exits.
+
+- All 2,000 on the leaf at once: lose.
+- All 2,000 outside at once: win.
+- Each escaped ant returns after 60 seconds of active play.
+
+Pause stops the simulation and leaf movement. The leaf gradually warms from green toward ochre and red as the active population rises above 500. Clearing tools preserves the population; restarting begins a fresh round. Sugar can gather a crowd, then a breeze can push them outward.
 
 ## Edit with a live preview
 
@@ -40,7 +46,7 @@ Open `http://localhost:4173` beside your editor. Saving any game source file aut
 | `simulation.js` | Ant movement, tool interactions, and exit rules      |
 | `game.js`       | Canvas rendering, pointer input, and interface state |
 
-The original leaf painting, transparent tool sprites, and bundled book fonts live in `assets/`. Replace the images to change the scenery or materials. The dev server watches asset changes too. Typography and its subtle engraved highlights are controlled in `style.css`.
+The leaf painting, transparent 3D tool renders, and bundled book fonts live in `assets/`. Replace the images to change the scenery or materials. The dev server watches asset changes too. Typography and its subtle engraved highlights are controlled in `style.css`.
 
 ## Check and build
 
@@ -50,7 +56,7 @@ npm test
 npm run build
 ```
 
-The checks validate JavaScript syntax and local asset references. The simulation tests cover idle behavior, tool effects, a playable route to the exit, and reset. The build creates static files in `dist/` and an offline, self-contained `dist/standalone.html`. Edit the source files, rather than generated copies.
+The checks validate JavaScript syntax and local asset references. The simulation tests cover tool effects, population arrivals, 60-second returns, win/loss conditions, saved-state recovery, and a playable route for all 2,000 ants. The build creates static files in `dist/` and an offline, self-contained `dist/standalone.html`. Edit the source files, rather than generated copies.
 
 ## Publish changes
 

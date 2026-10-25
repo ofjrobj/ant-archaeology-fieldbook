@@ -9,9 +9,19 @@
   const canvas = $("terrain");
   const ctx = canvas.getContext("2d");
   const WORLD = { width: 1000, height: 620 };
-  const SAVE_KEY = "out-of-line-session-v1";
+  const SAVE_KEY = "out-of-line-population-v2";
+  const createModel = () =>
+    physics.create({
+      ...WORLD,
+      count: config.count,
+      initialCount: config.initialCount,
+      arrivalRate: config.arrivalRate,
+      returnDelay: config.returnDelay,
+      populationMode: true,
+      seed: 18,
+    });
   const help = $("helpDialog");
-  let model = physics.create({ ...WORLD, count: config.count, seed: 18 });
+  let model = createModel();
   let selected = "barrier";
   let paused = false;
   let drawing = false;
@@ -23,7 +33,7 @@
   let keyboardBreeze = false;
   let lastTime = 0;
   let displayTime = "";
-  let previousEscaped = -1;
+  let previousPopulation = "";
   let saveTime = 0;
   let toastTimer;
   let ground;
@@ -35,7 +45,8 @@
     const saved = JSON.parse(sessionStorage.getItem(SAVE_KEY));
     if (
       saved &&
-      saved.version === 1 &&
+      saved.version === 2 &&
+      saved.model?.populationMode === true &&
       saved.model?.total === config.count &&
       saved.model.width === WORLD.width &&
       saved.model.height === WORLD.height &&
@@ -61,7 +72,7 @@
     try {
       sessionStorage.setItem(
         SAVE_KEY,
-        JSON.stringify({ version: 1, model, selected }),
+        JSON.stringify({ version: 2, model, selected }),
       );
     } catch {}
   }
@@ -118,14 +129,15 @@
   $("clearBtn").addEventListener("click", () => {
     cancelGesture();
     physics.clearTools(model);
-    toast("A clean slate. The ants keep going.");
+    toast("Tools cleared.");
     save();
   });
 
   function restart() {
     cancelGesture();
-    model = physics.create({ ...WORLD, count: config.count, seed: 18 });
+    model = createModel();
     paused = false;
+    document.querySelector(".page").classList.remove("is-still");
     winShown = false;
     $("winPanel").hidden = true;
     $("pauseOverlay").hidden = true;
@@ -133,15 +145,16 @@
     $("pauseBtn").textContent = "Ⅱ";
     $("pauseBtn").setAttribute("aria-label", "Pause game");
     $("sessionState").textContent = "IN PLAY";
-    previousEscaped = -1;
+    previousPopulation = "";
     displayTime = "";
     selectTool("barrier");
     updateStats();
     save();
   }
   function togglePause(value = !paused) {
-    if (model.won) return;
+    if (model.won || model.lost) return;
     paused = value;
+    document.querySelector(".page").classList.toggle("is-still", paused);
     cancelGesture();
     $("pauseOverlay").hidden = !paused;
     $("sessionState").textContent = paused ? "PAUSED" : "IN PLAY";
@@ -222,7 +235,8 @@
     if (selected === "eraser") physics.eraseAt(model, point, 38);
     else physics.applyTool(model, selected, [point]);
   }
-  const canPlay = () => artReady && !paused && !model.won && !help.open;
+  const canPlay = () =>
+    artReady && !paused && !model.won && !model.lost && !help.open;
   canvas.addEventListener("pointerdown", (event) => {
     if (
       !canPlay() ||
@@ -381,7 +395,7 @@
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
-    const ratio = Math.min(window.devicePixelRatio || 1, 2);
+    const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = Math.round(rect.width * ratio);
     canvas.height = Math.round(rect.height * ratio);
     if (!ground) {
@@ -395,29 +409,52 @@
     draw();
   }
   function updateStats() {
-    if (model.escaped !== previousEscaped) {
-      $("remaining").textContent = model.total - model.escaped;
-      $("escaped").textContent = model.escaped;
+    const active = model.active ?? model.total - model.escaped;
+    const reserve = model.reserve ?? 0;
+    const population = `${active}:${model.escaped}:${reserve}`;
+    if (population !== previousPopulation) {
+      $("remaining").textContent = active.toLocaleString("en");
+      $("escaped").textContent = model.escaped.toLocaleString("en");
+      $("approaching").textContent = reserve.toLocaleString("en");
       $("escapeProgress").max = model.total;
       $("escapeProgress").value = model.escaped;
       $("escapeProgress").textContent =
-        `${model.escaped} of ${model.total} ants escaped`;
-      previousEscaped = model.escaped;
+        `${model.escaped} of ${model.total} ants outside`;
+      const stress = Math.max(0, Math.min(1, (active - 500) / 1500));
+      document
+        .querySelector(".page")
+        .style.setProperty("--leaf-stress", stress.toFixed(3));
+      previousPopulation = population;
     }
     const time = formatTime(model.time);
     if (time !== displayTime) {
       $("timer").textContent = time;
+      let nextReturn = Infinity;
+      for (const ant of model.ants) {
+        if (ant.status === "outside")
+          nextReturn = Math.min(nextReturn, ant.returnAt);
+      }
+      $("returnNote").textContent = Number.isFinite(nextReturn)
+        ? `return ${formatTime(Math.max(0, Math.ceil(nextReturn - model.time)))}`
+        : "return in 1 min";
       displayTime = time;
     }
-    if (model.won && !winShown) {
+    if ((model.won || model.lost) && !winShown) {
       winShown = true;
-      $("sessionState").textContent = "CLEARED";
+      $("sessionState").textContent = model.won ? "ALL FREE" : "LEAF FULL";
+      document.querySelector(".page").classList.add("is-still");
       cancelGesture();
-      $("winSummary").textContent =
-        `${model.total} ants set free in ${formatTime(model.time)}.`;
+      $("winTitle").textContent = model.won
+        ? "A moment of freedom."
+        : "The leaf is full.";
+      $("winPanel").querySelector(".eyebrow").textContent = model.won
+        ? "ALL 2,000 OUTSIDE"
+        : "2,000 ON THE LEAF";
+      $("winSummary").textContent = model.won
+        ? `Every ant outside at once. ${formatTime(model.time)}.`
+        : "Every ant is here. Try another way.";
       $("winPanel").hidden = false;
       $("pauseOverlay").hidden = true;
-      toast("All ants are out. You did it!");
       save();
     }
   }
@@ -432,7 +469,6 @@
       0,
     );
     ctx.clearRect(0, 0, WORLD.width, WORLD.height);
-    ctx.drawImage(ground, 0, 0, WORLD.width, WORLD.height);
     for (const path of model.paths) art.drawPath(ctx, path, model.time);
     for (const object of model.objects) art.drawObject(ctx, object, model.time);
     if (points.length > 1) {
@@ -447,13 +483,21 @@
           ctx,
           ant.x,
           ant.y,
-          0.95,
+          0.65,
           ant.angle,
           ant.phase + model.time * 18,
+          (model.active ?? 0) > 700 ? 0 : 1,
         );
     }
     if (pointer.visible && canPlay()) {
-      art.drawCursor(ctx, selected, pointer.x, pointer.y, model.time);
+      art.drawCursor(
+        ctx,
+        selected,
+        pointer.x,
+        pointer.y,
+        model.time,
+        Boolean(breeze),
+      );
       if (breeze) {
         ctx.save();
         ctx.strokeStyle = "#827b52";
@@ -470,7 +514,7 @@
     }
   }
   function frame(time) {
-    const dt = lastTime ? Math.min((time - lastTime) / 1000, 0.05) : 0;
+    const dt = lastTime ? Math.min((time - lastTime) / 1000, 0.1) : 0;
     lastTime = time;
     if (canPlay() && !document.hidden) {
       // Small substeps keep fast moving ants from tunneling through a chalk wall.
@@ -478,7 +522,7 @@
       for (let i = 0; i < steps; i++)
         physics.step(model, dt / steps, { breeze });
       saveTime += dt;
-      if (saveTime > 2) {
+      if (saveTime > 8) {
         saveTime = 0;
         save();
       }
@@ -492,6 +536,10 @@
   updateStats();
   resize();
   Promise.resolve(art.ready).then(() => {
+    for (const button of document.querySelectorAll("[data-tool]")) {
+      button.querySelector(".tool-icon").innerHTML =
+        art.icons[button.dataset.tool];
+    }
     artReady = true;
     ground = null;
     lastTime = 0;
@@ -499,6 +547,6 @@
     $("field").setAttribute("aria-busy", "false");
     resize();
   });
-  if (restored && !model.won) toast("Back to your little experiment.");
+  if (restored && !model.won && !model.lost) toast("Resumed.");
   requestAnimationFrame(frame);
 })();

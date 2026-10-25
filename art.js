@@ -13,26 +13,39 @@
   };
   const TAU = Math.PI * 2;
   const images = {};
-  const ready = Promise.all(
-    [
-      ["ground", "assets/leaf-surface.png"],
-      ["tools", "assets/tool-sprites.png"],
-    ].map(
-      ([key, url]) =>
-        new Promise((resolve) => {
-          const image = new Image();
-          image.onload = () => {
-            images[key] = image;
-            resolve(true);
-          };
-          image.onerror = () => resolve(false);
-          image.src = url;
-        }),
+  const toolAssets = {
+    current: "assets/tools-3d.png",
+    legacy: "assets/tool-sprites.png",
+  };
+  const loadImage = (key, url) =>
+    new Promise((resolve) => {
+      const image = new Image();
+      image.onload = () => {
+        images[key] = image;
+        resolve(true);
+      };
+      image.onerror = () => resolve(false);
+      image.src = url;
+    });
+  const ready = Promise.all([
+    loadImage("ground", "assets/leaf-surface.png"),
+    loadImage("tools", toolAssets.current).then(
+      (loaded) => loaded || loadImage("legacyTools", toolAssets.legacy),
     ),
-  ).then(([leaf, sprites]) => ({ leaf, sprites }));
+  ]).then(([leaf, sprites]) => ({ leaf, sprites }));
   let antBody;
   const chalkPatterns = new WeakMap();
+  let scentDrop;
+  const pathDrops = new WeakMap();
   const spriteCells = {
+    barrier: [0, 0],
+    pebble: [1, 0],
+    lemon: [2, 0],
+    sugar: [0, 1],
+    trail: [1, 1],
+    breeze: [2, 1],
+  };
+  const legacyCells = {
     barrier: [0, 0],
     pebble: [1, 0],
     lemon: [0, 1],
@@ -40,10 +53,11 @@
   };
 
   function drawSprite(ctx, type, x, y, size, angle = 0) {
-    const image = images.tools;
-    if (!image || !spriteCells[type]) return false;
-    const [column, row] = spriteCells[type];
-    const cellWidth = image.naturalWidth / 2;
+    const image = images.tools || images.legacyTools;
+    const cells = images.tools ? spriteCells : legacyCells;
+    if (!image || !cells[type]) return false;
+    const [column, row] = cells[type];
+    const cellWidth = image.naturalWidth / (images.tools ? 3 : 2);
     const cellHeight = image.naturalHeight / 2;
     ctx.save();
     ctx.translate(x, y);
@@ -61,6 +75,77 @@
     );
     ctx.restore();
     return true;
+  }
+
+  function makeScentDrop() {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 48;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(3, 3);
+    ctx.translate(8, 8);
+    const shadow = ctx.createRadialGradient(0.8, 1.7, 0.2, 0.8, 1.7, 4.4);
+    shadow.addColorStop(0, "rgba(39,30,9,.45)");
+    shadow.addColorStop(1, "rgba(39,30,9,0)");
+    ctx.fillStyle = shadow;
+    ellipse(ctx, 0.8, 1.7, 4.6, 3.3);
+    ctx.fill();
+    const amber = ctx.createRadialGradient(-1, -1.2, 0.1, 0, 0, 3.5);
+    amber.addColorStop(0, "#fff3b4");
+    amber.addColorStop(0.24, "#edc65c");
+    amber.addColorStop(0.65, "#ba7e29");
+    amber.addColorStop(1, "#6e4617");
+    ctx.fillStyle = amber;
+    ellipse(ctx, 0, 0, 3, 2.5, -0.2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,225,.9)";
+    ellipse(ctx, -0.9, -1.1, 0.9, 0.42, -0.3);
+    ctx.fill();
+    return canvas;
+  }
+
+  function dropletsFor(path, points) {
+    const cached = pathDrops.get(path);
+    const last = point(points[points.length - 1]);
+    if (
+      cached &&
+      cached.length === points.length &&
+      cached.lastX === last.x &&
+      cached.lastY === last.y
+    )
+      return cached.drops;
+    let total = 0;
+    for (let i = 1; i < points.length; i++) {
+      const a = point(points[i - 1]),
+        b = point(points[i]);
+      total += Math.hypot(b.x - a.x, b.y - a.y);
+    }
+    const spacing = Math.max(22, total / 64);
+    let untilNext = spacing * 0.5;
+    const drops = [];
+    for (let i = 1; i < points.length; i++) {
+      const a = point(points[i - 1]),
+        b = point(points[i]);
+      const dx = b.x - a.x,
+        dy = b.y - a.y;
+      const length = Math.hypot(dx, dy);
+      while (untilNext <= length && length > 0) {
+        const t = untilNext / length;
+        drops.push({
+          x: a.x + dx * t,
+          y: a.y + dy * t,
+          size: 0.86 + (drops.length % 4) * 0.08,
+        });
+        untilNext += spacing;
+      }
+      untilNext -= length;
+    }
+    pathDrops.set(path, {
+      length: points.length,
+      lastX: last.x,
+      lastY: last.y,
+      drops,
+    });
+    return drops;
   }
 
   function contactShadow(ctx, x, y, radius, opacity = 0.3) {
@@ -153,7 +238,14 @@
     ctx.ellipse(x, y, rx, ry, angle, 0, TAU);
   }
 
-  function drawAnt(ctx, x, y, scale = 1, angle = 0, phase = 0) {
+  // Shared scratch coordinates avoid per-ant allocations as the colony grows.
+  // Canvas drawing is synchronous, so one six-leg buffer serves every ant.
+  const legRoots = [1.4, -0.2, -1.6];
+  const legKnees = [4, -0.3, -4.5];
+  const legFeet = [6.8, -1.2, -7.8];
+  const legGeometry = new Float32Array(6 * 7);
+
+  function drawAnt(ctx, x, y, scale = 1, angle = 0, phase = 0, detail = 1) {
     if (!antBody) antBody = makeAntBody();
     ctx.save();
     ctx.translate(x, y);
@@ -162,74 +254,85 @@
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
 
-    // Six jointed legs use an alternating tripod gait; the body is cached.
-    const roots = [1.4, -0.2, -1.6];
-    const knees = [4.0, -0.3, -4.5];
-    const feet = [6.8, -1.2, -7.8];
-    const legs = [];
-    for (const side of [-1, 1]) {
+    // Both detail levels retain six jointed legs and the alternating tripod gait.
+    const stride = Math.sin(phase);
+    let offset = 0;
+    for (let side = -1; side <= 1; side += 2) {
       for (let leg = 0; leg < 3; leg++) {
-        const swing = Math.sin(
-          phase + (leg === 1 ? Math.PI : 0) + (side === 1 ? Math.PI : 0),
-        );
-        const toeX = feet[leg] - swing * 1.3;
-        const toeY = side * (6.6 - Math.max(0, swing) * 0.8);
-        legs.push({
-          rootX: roots[leg],
-          side,
-          kneeX: knees[leg] + swing * 0.8,
-          kneeY: side * (3.5 + Math.max(0, swing) * 0.3),
-          toeX,
-          toeY,
-          tipX: toeX + (leg === 0 ? 0.8 : -0.7),
-        });
+        const swing = stride * (leg === 1 ? -1 : 1) * -side;
+        const toeX = legFeet[leg] - swing * 1.3;
+        legGeometry[offset] = legRoots[leg];
+        legGeometry[offset + 1] = side;
+        legGeometry[offset + 2] = legKnees[leg] + swing * 0.8;
+        legGeometry[offset + 3] = side * (3.5 + Math.max(0, swing) * 0.3);
+        legGeometry[offset + 4] = toeX;
+        legGeometry[offset + 5] = side * (6.6 - Math.max(0, swing) * 0.8);
+        legGeometry[offset + 6] = toeX + (leg === 0 ? 0.8 : -0.7);
+        offset += 7;
       }
     }
-    ctx.strokeStyle = "rgba(15,22,8,.25)";
-    ctx.lineWidth = 1.15;
-    ctx.beginPath();
-    for (const leg of legs) {
-      ctx.moveTo(leg.rootX + 0.7, leg.side + 1.2);
-      ctx.lineTo(leg.kneeX + 0.7, leg.kneeY + 1.2);
-      ctx.lineTo(leg.toeX + 0.7, leg.toeY + 1.2);
+    if (detail > 0) {
+      ctx.strokeStyle = "rgba(15,22,8,.25)";
+      ctx.lineWidth = 1.15;
+      ctx.beginPath();
+      for (let i = 0; i < 42; i += 7) {
+        ctx.moveTo(legGeometry[i] + 0.7, legGeometry[i + 1] + 1.2);
+        ctx.lineTo(legGeometry[i + 2] + 0.7, legGeometry[i + 3] + 1.2);
+        ctx.lineTo(legGeometry[i + 4] + 0.7, legGeometry[i + 5] + 1.2);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = "#332c1c";
+      ctx.lineWidth = 0.91;
+      ctx.beginPath();
+      for (let i = 0; i < 42; i += 7) {
+        ctx.moveTo(legGeometry[i], legGeometry[i + 1]);
+        ctx.lineTo(legGeometry[i + 2], legGeometry[i + 3]);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = "#1e2716";
+      ctx.lineWidth = 0.57;
+      ctx.beginPath();
+      for (let i = 0; i < 42; i += 7) {
+        ctx.moveTo(legGeometry[i + 2], legGeometry[i + 3]);
+        ctx.lineTo(legGeometry[i + 4], legGeometry[i + 5]);
+        ctx.lineTo(
+          legGeometry[i + 6],
+          legGeometry[i + 5] + legGeometry[i + 1] * 0.45,
+        );
+      }
+      ctx.stroke();
+    } else {
+      // One batched stroke retains the leg silhouette at dense populations.
+      ctx.strokeStyle = "#252d19";
+      ctx.lineWidth = 0.7;
+      ctx.beginPath();
+      for (let i = 0; i < 42; i += 7) {
+        ctx.moveTo(legGeometry[i], legGeometry[i + 1]);
+        ctx.lineTo(legGeometry[i + 2], legGeometry[i + 3]);
+        ctx.lineTo(legGeometry[i + 4], legGeometry[i + 5]);
+        ctx.lineTo(
+          legGeometry[i + 6],
+          legGeometry[i + 5] + legGeometry[i + 1] * 0.45,
+        );
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
-    ctx.strokeStyle = "#332c1c";
-    ctx.lineWidth = 0.91;
-    ctx.beginPath();
-    for (const leg of legs) {
-      ctx.moveTo(leg.rootX, leg.side);
-      ctx.lineTo(leg.kneeX, leg.kneeY);
-    }
-    ctx.stroke();
-    ctx.strokeStyle = "#1e2716";
-    ctx.lineWidth = 0.57;
-    ctx.beginPath();
-    for (const leg of legs) {
-      ctx.moveTo(leg.kneeX, leg.kneeY);
-      ctx.lineTo(leg.toeX, leg.toeY);
-      ctx.lineTo(leg.tipX, leg.toeY + leg.side * 0.45);
-    }
-    ctx.stroke();
     ctx.drawImage(antBody, -16, -12, 32, 24);
     ctx.strokeStyle = "#202719";
-    ctx.lineWidth = 0.52;
-    for (const side of [-1, 1]) {
+    ctx.lineWidth = 0.55;
+    ctx.beginPath();
+    for (let side = -1; side <= 1; side += 2) {
       const twitch = Math.sin(phase * 0.42 + side * 0.8) * 0.48;
-      line(ctx, [
-        [6.1, side * 1.1],
-        [8.4, side * (3.1 + twitch)],
-        [11.1, side * (2.45 + twitch)],
-      ]);
-      ctx.stroke();
-      ctx.lineWidth = 0.6;
-      line(ctx, [
-        [6.6, side * 0.55],
-        [7.9, side * 0.65],
-        [7.55, side * 0.1],
-      ]);
-      ctx.stroke();
+      ctx.moveTo(6.1, side * 1.1);
+      ctx.lineTo(8.4, side * (3.1 + twitch));
+      ctx.lineTo(11.1, side * (2.45 + twitch));
+      if (detail > 0) {
+        ctx.moveTo(6.6, side * 0.55);
+        ctx.lineTo(7.9, side * 0.65);
+        ctx.lineTo(7.55, side * 0.1);
+      }
     }
+    ctx.stroke();
     ctx.restore();
   }
 
@@ -307,84 +410,9 @@
   }
 
   function drawGround(ctx, width, height) {
-    ctx.save();
-    if (images.ground) {
-      const image = images.ground;
-      const cover = Math.max(
-        width / image.naturalWidth,
-        height / image.naturalHeight,
-      );
-      const sourceW = width / cover;
-      const sourceH = height / cover;
-      ctx.drawImage(
-        image,
-        (image.naturalWidth - sourceW) / 2,
-        (image.naturalHeight - sourceH) / 2,
-        sourceW,
-        sourceH,
-        0,
-        0,
-        width,
-        height,
-      );
-    } else {
-      const green = ctx.createLinearGradient(0, 0, width, height);
-      green.addColorStop(0, "#c1cf76");
-      green.addColorStop(0.4, "#a4b965");
-      green.addColorStop(1, "#668941");
-      ctx.fillStyle = green;
-      ctx.fillRect(0, 0, width, height);
-      ctx.strokeStyle = "rgba(227,231,165,.2)";
-      ctx.lineWidth = 6;
-      line(ctx, [
-        [0, height],
-        [width, 0],
-      ]);
-      ctx.stroke();
-      ctx.lineWidth = 1.3;
-      for (let i = 1; i < 14; i++) {
-        const x = (width * i) / 14;
-        const y = height * (1 - i / 14);
-        line(ctx, [
-          [x, y],
-          [x - width * 0.12, 0],
-        ]);
-        ctx.stroke();
-        line(ctx, [
-          [x, y],
-          [x + width * 0.2, height],
-        ]);
-        ctx.stroke();
-      }
-    }
-    const light = ctx.createLinearGradient(0, 0, width, height);
-    light.addColorStop(0, "rgba(251,244,191,.07)");
-    light.addColorStop(0.48, "rgba(251,244,191,0)");
-    light.addColorStop(1, "rgba(21,46,14,.08)");
-    ctx.fillStyle = light;
-    ctx.fillRect(0, 0, width, height);
-
-    // The field itself stays free of UI; small edge notches hint at escape.
-    [
-      [width / 2, 18, -Math.PI / 2],
-      [width - 18, height / 2, 0],
-      [width / 2, height - 18, Math.PI / 2],
-      [18, height / 2, Math.PI],
-    ].forEach(([x, y, angle]) => {
-      ctx.save();
-      ctx.translate(x, y);
-      ctx.rotate(angle);
-      ctx.strokeStyle = "rgba(246,248,207,.62)";
-      ctx.lineWidth = 1.4;
-      line(ctx, [
-        [-4, -4],
-        [0, 0],
-        [-4, 4],
-      ]);
-      ctx.stroke();
-      ctx.restore();
-    });
-    ctx.restore();
+    // The living leaf is a full-page CSS background. Keep the game surface
+    // transparent so ants, tools, and trails sit directly on that same leaf.
+    ctx.clearRect(0, 0, width, height);
   }
 
   function ring(ctx, x, y, radius, fill, stroke, time = 0) {
@@ -684,42 +712,66 @@
     };
     if (type === "barrier") {
       const width = path.width || 12;
+      ctx.save();
+      ctx.translate(2.3, 3.3);
       trace();
-      ctx.lineWidth = width + 7;
-      ctx.strokeStyle = "rgba(174,92,51,.12)";
+      ctx.lineWidth = width + 5;
+      ctx.strokeStyle = "rgba(36,35,13,.16)";
       ctx.stroke();
-      ctx.lineWidth = width + 2;
-      ctx.strokeStyle = "rgba(129,61,34,.38)";
+      ctx.lineWidth = width + 1.5;
+      ctx.strokeStyle = "rgba(48,30,16,.35)";
+      ctx.stroke();
+      ctx.restore();
+      trace();
+      ctx.lineWidth = width + 1;
+      ctx.strokeStyle = "#825333";
+      ctx.stroke();
+      ctx.save();
+      ctx.translate(-0.7, -1.1);
+      trace();
+      ctx.lineWidth = width - 1;
+      ctx.strokeStyle = "#b77d50";
+      ctx.stroke();
+      ctx.lineWidth = width * 0.58;
+      ctx.strokeStyle = "#d7a679";
       ctx.stroke();
       ctx.lineWidth = width - 1;
-      ctx.strokeStyle = "#b6754d";
-      ctx.stroke();
       ctx.strokeStyle = chalkPattern(ctx);
       ctx.stroke();
-      ctx.lineWidth = 0.65;
-      ctx.strokeStyle = "rgba(251,211,162,.42)";
-      ctx.setLineDash([1, 3, 5, 2]);
-      for (const shift of [-2.4, 1.8]) {
-        ctx.save();
-        ctx.translate(shift * 0.4, shift);
-        trace();
-        ctx.stroke();
-        ctx.restore();
-      }
+      ctx.translate(-0.5, -1.3);
+      trace();
+      ctx.lineWidth = 1.1;
+      ctx.strokeStyle = "rgba(255,224,184,.75)";
+      ctx.setLineDash([2, 1, 5, 2.5]);
+      ctx.stroke();
+      ctx.restore();
     } else {
       trace();
-      ctx.lineWidth = 10;
-      ctx.strokeStyle = "rgba(211,237,207,.08)";
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = "rgba(239,205,109,.07)";
       ctx.stroke();
-      ctx.lineWidth = 3.4;
-      ctx.strokeStyle = "rgba(32,64,31,.2)";
-      ctx.setLineDash([0.3, 9]);
-      ctx.lineDashOffset = -time * 9;
-      ctx.stroke();
-      ctx.strokeStyle = "#ecedb8";
-      ctx.lineWidth = 1.8;
+      ctx.lineWidth = 0.8;
+      ctx.strokeStyle = "rgba(253,239,181,.55)";
+      ctx.setLineDash([0.4, 5]);
+      ctx.lineDashOffset = -time * 8;
       ctx.stroke();
       ctx.setLineDash([]);
+      if (!scentDrop) scentDrop = makeScentDrop();
+      const drops = dropletsFor(path, points);
+      for (let i = 0; i < drops.length; i++) {
+        const drop = drops[i];
+        const size = 16 * drop.size;
+        ctx.drawImage(
+          scentDrop,
+          drop.x - size / 2,
+          drop.y - size / 2,
+          size,
+          size,
+        );
+      }
+      const start = point(points[0]);
+      contactShadow(ctx, start.x + 1, start.y + 8, 18, 0.3);
+      drawSprite(ctx, "trail", start.x, start.y - 5, 48, -0.13);
       if (points.length > 1) {
         const end = point(points[points.length - 1]);
         let before = point(points[points.length - 2]);
@@ -730,11 +782,12 @@
         const angle = Math.atan2(end.y - before.y, end.x - before.x);
         ctx.translate(end.x, end.y);
         ctx.rotate(angle);
-        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = "rgba(255,235,166,.8)";
+        ctx.lineWidth = 1.1;
         line(ctx, [
-          [-7, -3.5],
+          [-6, -3],
           [0, 0],
-          [-7, 3.5],
+          [-6, 3],
         ]);
         ctx.stroke();
       }
@@ -742,17 +795,19 @@
     ctx.restore();
   }
 
-  function drawCursor(ctx, tool, x, y, time = 0) {
+  function drawCursor(ctx, tool, x, y, time = 0, active = false) {
     ctx.save();
-    ctx.globalAlpha = 0.72;
+    ctx.globalAlpha = active ? 0.98 : 0.82;
     ctx.strokeStyle = "#f7f1cf";
     ctx.lineWidth = 1;
     if (tool === "pebble") {
       contactShadow(ctx, x + 2, y + 16, 34, 0.4);
       if (!drawSprite(ctx, tool, x, y, 77, -0.12)) pebble(ctx, x, y, 25);
     } else if (tool === "lemon") {
+      contactShadow(ctx, x + 2, y + 13, 29, 0.3);
       if (!drawSprite(ctx, tool, x, y, 81, -0.14)) lemon(ctx, x, y, 23);
     } else if (tool === "sugar") {
+      contactShadow(ctx, x + 2, y + 12, 24, 0.3);
       if (!drawSprite(ctx, tool, x, y, 67, 0.08)) cube(ctx, x, y, 17, -0.08);
     } else if (tool === "breeze") {
       ring(
@@ -760,33 +815,53 @@
         x,
         y,
         74,
-        "rgba(193,233,219,.035)",
-        "rgba(221,247,223,.3)",
+        "rgba(193,233,219,.025)",
+        "rgba(221,247,223,.23)",
         time,
       );
-      ctx.strokeStyle = "#d0eada";
-      ctx.lineWidth = 1.1;
+      const flutter =
+        Math.sin(time * (active ? 22 : 3)) * (active ? 0.23 : 0.035);
+      contactShadow(ctx, x + 4, y + 19, 29, active ? 0.3 : 0.22);
+      const hasFan = drawSprite(ctx, tool, x, y + 3, 76, -0.25 + flutter);
+      ctx.strokeStyle = "rgba(216,240,219,.8)";
+      ctx.lineWidth = active ? 1.25 : 0.85;
       for (let i = 0; i < 3; i++) {
-        const yy = y + (i - 1) * 12;
+        const drift = active ? (time * 30 + i * 11) % 30 : 0;
+        const xx = x + (hasFan ? 17 : -10) + drift;
+        const yy = y - 17 + i * 13;
         ctx.beginPath();
-        ctx.moveTo(x - 24, yy);
-        ctx.bezierCurveTo(x - 9, yy + 5, x + 8, yy - 5, x + 20, yy);
-        ctx.bezierCurveTo(x + 32, yy + 4, x + 30, yy - 11, x + 22, yy - 9);
+        ctx.moveTo(xx, yy);
+        ctx.bezierCurveTo(xx + 11, yy + 3, xx + 23, yy - 4, xx + 34, yy);
+        ctx.bezierCurveTo(xx + 42, yy + 2, xx + 40, yy - 7, xx + 34, yy - 6);
+        ctx.stroke();
+      }
+    } else if (tool === "barrier") {
+      contactShadow(ctx, x + 13, y + 3, 22, 0.25);
+      if (!drawSprite(ctx, tool, x + 12, y - 11, 57, -0.35)) {
+        ctx.strokeStyle = "#f1bb83";
+        ellipse(ctx, x, y, 7, 7);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "rgba(246,218,172,.8)";
+      ellipse(ctx, x, y, 2, 2);
+      ctx.fill();
+    } else if (tool === "trail") {
+      contactShadow(ctx, x + 9, y + 5, 19, 0.25);
+      if (!drawSprite(ctx, tool, x + 8, y - 11, 55, -0.25)) {
+        ctx.strokeStyle = "#edf1c6";
+        ellipse(ctx, x, y, 5, 5);
         ctx.stroke();
       }
     } else {
-      const radius = tool === "eraser" ? 28 : tool === "trail" ? 5 : 7;
-      ctx.strokeStyle = tool === "barrier" ? "#f1bb83" : "#edf1c6";
-      if (tool === "eraser") ctx.setLineDash([3, 5]);
-      ellipse(ctx, x, y, radius, radius);
+      ctx.strokeStyle = "#edf1c6";
+      ctx.setLineDash([3, 5]);
+      ellipse(ctx, x, y, 28, 28);
       ctx.stroke();
-      if (tool === "eraser") {
-        line(ctx, [
-          [x - 4, y],
-          [x + 4, y],
-        ]);
-        ctx.stroke();
-      }
+      line(ctx, [
+        [x - 4, y],
+        [x + 4, y],
+      ]);
+      ctx.stroke();
     }
     ctx.restore();
   }
@@ -817,17 +892,21 @@
     ),
   };
 
-  const spriteIcon = (column, row) =>
-    `<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><image href="assets/tool-sprites.png" width="1024" height="1024" x="${-column * 512}" y="${-row * 512}"/></svg>`;
+  const vectorIcons = { ...icons };
+  const spriteIcon = (column, row, legacy = false) =>
+    `<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><image href="${toolAssets[legacy ? "legacy" : "current"]}" width="${legacy ? 1024 : 1536}" height="1024" x="${-column * 512}" y="${-row * 512}"/></svg>`;
   Object.entries(spriteCells).forEach(([key, cell]) => {
     icons[key] = spriteIcon(...cell);
   });
-  icons.trail = svg(
-    '<path d="M6 31c-1-11 8-6 13-12S22 9 33 7" stroke="#8b7940" stroke-width="2.2" stroke-dasharray=".6 5"/><path d="m26 6 7 1-2 6" stroke="#6c653a" stroke-width="1.1"/><circle cx="8" cy="29" r="3" fill="#8b7940" opacity=".14"/><circle cx="21" cy="17" r="4" fill="#8b7940" opacity=".12"/>',
-  );
-  icons.breeze = svg(
-    '<path d="M5 13h19c10 0 9-9 3-8M8 21h23c7 0 6-8 1-7M5 29h16c10 0 9 9 3 8" stroke="#5d8175" stroke-width="1.5"/><path d="M8 17h8M12 25h11" stroke="#5d8175" stroke-width=".8" opacity=".4"/>',
-  );
+  ready.then(() => {
+    if (images.tools) return;
+    for (const key of Object.keys(spriteCells)) {
+      icons[key] =
+        images.legacyTools && legacyCells[key]
+          ? spriteIcon(...legacyCells[key], true)
+          : vectorIcons[key];
+    }
+  });
 
   // An original engraved specimen for the title-page vignette. The hatchwork
   // follows the body contours, as it would in a copperplate field illustration.
