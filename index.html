@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23f4f4f4'/%3E%3Ctext x='32' y='47' text-anchor='middle' font-size='47' fill='%23222222'%3E※%3C/text%3E%3C/svg%3E"
+    />
+    <meta name="theme-color" content="#f4f4f4" />
+    <meta
+      name="description"
+      content="개미의 길을 그리고, 묻힌 사물을 발견하고, 무엇을 남길지 선택하는 흑백 철학 게임."
+    />
+    <title>개미 발굴 도감 — 남겨진 것들의 고고학</title>
+    <link rel="stylesheet" href="style.css?v=3" />
+  </head>
+  <body>
+    <div class="paper-grain" aria-hidden="true"></div>
+    <main class="page">
+      <header class="masthead">
+        <a class="wordmark" href="#" aria-label="개미 발굴 도감 처음 화면"
+          ><span class="mark" aria-hidden="true">※</span> 작은 존재의 고고학
+          <span class="mast-en">ARCHAEOLOGY OF THE SMALL</span></a
+        >
+        <nav aria-label="게임 메뉴">
+          <button id="journalBtn">
+            발굴 기록 <span id="journalCount">00</span></button
+          ><button id="aboutBtn">
+            작업 노트 <span aria-hidden="true">↗</span></button
+          ><button id="helpBtn" aria-label="플레이 방법">?</button>
+        </nav>
+      </header>
+
+      <section class="introduction" aria-labelledby="title">
+        <div>
+          <p class="eyebrow">
+            AN INTERACTIVE FIELD NOTE <span>—</span> VOL. 01
+          </p>
+          <h1 id="title">
+            개미 발굴 도감<span class="title-star" aria-hidden="true">✳</span>
+          </h1>
+          <p class="subtitle">
+            남겨진 것들의 고고학 <span> / </span> An archaeology of what remains
+          </p>
+        </div>
+        <div class="intro-note">
+          <span class="note-index">관찰자의 메모 / 001</span>
+          <p>
+            우리는 무언가를 찾기 위해 땅을 파지만,<br />때로는 남겨 두기 위해
+            발견한다.
+          </p>
+          <div class="intro-rule"></div>
+          <span class="small"
+            >개미 한 마리 · 세 개의 지층 · 정답 없는 기록</span
+          >
+        </div>
+      </section>
+
+      <section class="expedition" aria-label="발굴 게임">
+        <div class="field-column">
+          <div class="field-heading">
+            <div>
+              <span class="status-dot"></span
+              ><span id="chapterLabel">제 I 지층</span
+              ><span class="divider">/</span
+              ><strong id="chapterTitle">이름과 흐름</strong>
+            </div>
+            <span class="small mono" id="fieldRef">FIELD A — 01</span>
+          </div>
+          <div class="field" id="field">
+            <canvas
+              id="terrain"
+              aria-label="개미에게 길을 그려 주는 발굴 현장. 표시를 누르면 그곳으로 이동합니다."
+              tabindex="0"
+            ></canvas>
+            <div class="map-caption">
+              <span>발굴 구역 A</span><small>SITE PLAN · NOT TO SCALE</small>
+            </div>
+            <div class="compass" aria-hidden="true">
+              <span>N</span><b>↑</b><small>W ─ E</small>
+            </div>
+            <div id="siteMarkers"></div>
+            <button class="camp" id="campBtn" aria-label="기록대로 이동">
+              <span class="camp-icon" aria-hidden="true">⌑</span
+              ><span>기록대</span><small>BASE</small>
+            </button>
+            <div class="scale" aria-hidden="true">
+              <i></i><span>0</span><span>5 ant-lengths</span>
+            </div>
+            <div class="map-bottom">흙 아래에도 길은 있다.</div>
+            <div class="arrival" id="arrival" hidden>
+              <span>무언가가 닿았다.</span
+              ><button id="excavateBtn">흙을 들추기 ↗</button>
+            </div>
+          </div>
+          <div class="field-instructions">
+            <span class="instruction-symbol" aria-hidden="true">⌁</span>
+            <p id="liveHint" role="status" aria-live="polite">
+              × 표시를 누르거나, 선을 그어 개미에게 길을 알려 주세요.
+            </p>
+            <button id="pauseBtn" aria-label="개미 움직임 일시정지">Ⅱ</button>
+          </div>
+        </div>
+
+        <aside class="field-notes" aria-label="현재 발굴 메모">
+          <div class="aside-top">
+            <span class="eyebrow">FIELD NOTES</span
+            ><span class="small mono" id="chapterPage">01 / 03</span>
+          </div>
+          <p class="serif-large" id="thought">
+            이름을 지우면,<br />그것은 무엇으로 남을까?
+          </p>
+          <div class="specimen-portrait" id="portrait" aria-hidden="true"></div>
+          <div class="note-content">
+            <span class="note-index" id="noteIndex">지층에 들어서며</span>
+            <h2 id="noteTitle">아직 읽히지 않은 땅</h2>
+            <p id="noteText">
+              두 개의 흔적이 묻혀 있습니다. 작은 ×를 따라가 보세요. 서두를
+              필요는 없습니다.
+            </p>
+          </div>
+          <button class="next-layer" id="nextBtn" hidden>
+            다음 지층으로 내려가기 <span>↓</span>
+          </button>
+          <div class="layer-progress">
+            <span id="layerProgress">이 지층의 기록</span
+            ><span class="mono" id="layerCount">00 / 02</span>
+            <div class="progress-line"><i id="progressFill"></i></div>
+          </div>
+        </aside>
+      </section>
+
+      <section class="cabinet" aria-labelledby="cabinetTitle">
+        <div class="cabinet-heading">
+          <h2 id="cabinetTitle">발굴 도판 <span>THE SPECIMEN INDEX</span></h2>
+          <span class="small">채집한 것과, 남겨 둔 것.</span>
+        </div>
+        <div class="specimen-grid" id="specimenGrid"></div>
+      </section>
+      <footer>
+        <span
+          >HOW TO WIN A FIGHT AGAINST ANTS <span class="footer-sep">/</span> A
+          PLAYABLE INTERPRETATION</span
+        ><span id="footerMessage">승리 조건: 아직 정해지지 않음.</span>
+      </footer>
+    </main>
+
+    <dialog id="modal" aria-labelledby="modalTitle">
+      <button class="close-modal" id="closeModal" aria-label="닫기">×</button>
+      <div id="modalContent"></div>
+    </dialog>
+    <script src="art.js?v=3"></script>
+    <script src="story.js?v=3"></script>
+    <script src="game.js?v=3"></script>
+  </body>
+</html>

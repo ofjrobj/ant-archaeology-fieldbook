@@ -1,0 +1,14 @@
+{
+  "name": "ant-archaeology-fieldbook",
+  "version": "1.0.0",
+  "private": true,
+  "description": "개미 발굴 도감 — 흑백 철학 게임",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/check.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
