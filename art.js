@@ -1,396 +1,722 @@
-/* Hand-drawn field specimens. One path source for canvas and SVG. */
-(function () {
+/* Original field-book drawings in etched ink and faded earth pigments. */
+(() => {
   "use strict";
-  const P = (d, width = 0.65, fill = "none", opacity = 1) => ({
-    d,
-    width,
-    fill,
-    opacity,
-  });
-  const specimens = {};
 
-  // I. A battered directional tablet; the compass has no preferred north.
-  specimens.compass = [
-    P("M23 12 74 16 85 29 80 79 67 88 19 81 12 65 16 26Z", 0.95, "paper"),
-    P("M23 12 27 18 72 22 79 31 75 75 65 82 24 75 19 63 22 29Z", 0.45),
-    P(
-      "M19 81 24 75M80 79 75 75M85 29 79 31M74 16 72 22M12 65 19 63M16 26 22 29",
-      0.6,
-    ),
-    P(
-      "M19 28 22 21 26 21M26 78 38 79 43 81M77 37 76 52M20 53 20 62 24 67",
-      0.35,
-    ),
-    P("M66 30C83 45 71 69 52 71 33 72 24 56 31 40 37 26 54 23 66 30Z", 0.65),
-    P("M64 33C78 45 69 66 52 68 36 70 27 55 34 42 39 30 53 27 64 33Z", 0.35),
-    P("M52 33 56 46 68 51 55 55 50 68 47 55 34 50 47 47Z", 0.65),
-    P(
-      "M52 33 51 51 56 46ZM51 51 68 51 55 55ZM51 51 50 68 47 55ZM51 51 34 50 47 47Z",
-      0.35,
-      "ink",
-      0.68,
-    ),
-    P("M38 36 44 42M65 38 60 43M66 62 60 58M36 63 42 58", 0.45),
-    P(
-      "M51 24 51 28M73 49 77 49M50 73 50 77M25 49 29 49M32 30 35 33M70 31 67 34M70 69 67 66M30 69 33 66",
-      0.55,
-    ),
-    P(
-      "M27 17 25 20M31 17 29 20M35 18 33 21M39 18 37 21M43 18 41 21M47 19 45 21M51 19 49 22M55 20 53 22M59 20 57 23M63 21 61 23M67 21 65 23",
-      0.3,
-      "none",
-      0.65,
-    ),
-    P(
-      "M78 36 82 33M78 41 82 38M77 46 81 43M77 51 81 48M77 56 80 53M76 61 80 58M76 66 79 63M75 71 79 68M74 76 78 73M70 81 74 78M67 84 71 81M61 84 64 82M55 84 58 82M49 83 52 81M43 82 46 80M37 81 40 79M31 80 34 78",
-      0.35,
-    ),
-    P(
-      "M24 38 26 34 24 31M72 59 70 63 72 65M36 73 39 72M60 24 63 25M29 61 27 58M58 76 60 75 62 76",
-      0.35,
-    ),
-    P(
-      "M25 70h.1M28 72h.1M68 75h.1M71 73h.1M24 42h.1M72 27h.1M30 27h.1M64 77h.1M20 68h.1M76 27h.1",
-      1.1,
-    ),
-  ];
+  const color = {
+    paper: "#eee2c5",
+    ink: "#28261f",
+    clay: "#9f482e",
+    sage: "#a29460",
+    blue: "#827b52",
+    honey: "#b59650",
+    rose: "#d7bb99",
+  };
+  const TAU = Math.PI * 2;
+  const point = (p) => (Array.isArray(p) ? { x: p[0], y: p[1] } : p);
 
-  // II. A paper vessel and the thread that once connected it to another voice.
-  specimens.cup = [
-    P("M18 24C25 18 54 18 65 24L58 69C53 76 34 77 28 70Z", 0.9, "paper"),
-    P(
-      "M18 24C25 32 55 33 65 24M20 27C28 34 53 36 63 28M19 25C28 20 55 21 64 25",
-      0.55,
-    ),
-    P("M28 69C37 74 52 73 58 68M29 72C38 78 52 77 57 72", 0.5),
-    P(
-      "M22 31 30 67M25 34 32 68M28 35 34 69M32 36 37 70M59 34 54 68M62 30 56 66",
-      0.28,
-      "none",
-      0.7,
-    ),
-    P("M37 40 40 57 43 61M48 36 47 48M49 54 48 66M31 52 34 56", 0.32),
-    P("M40 74C39 71 44 70 45 73S43 76 41 75", 0.8, "paper"),
-    P("M42 74C42 89 73 91 81 78 89 64 71 60 73 52 75 47 82 52 84 46", 0.65),
-    P("M43 75C44 86 73 89 79 78 87 64 70 61 72 52 74 46 82 50 83 46", 0.24),
-    P(
-      "M20 24C30 27 53 28 62 24M25 23 27 24M29 22 32 24M34 22 37 24M40 22 43 24M46 22 49 24M52 23 55 25",
-      0.3,
-    ),
-    P(
-      "M29 73 30 70M33 75 34 72M37 76 38 73M47 75 48 73M51 75 52 72M55 73 56 70",
-      0.35,
-    ),
-    P(
-      "M33 45h.1M36 50h.1M44 37h.1M50 51h.1M53 55h.1M48 61h.1M35 61h.1M40 65h.1",
-      0.65,
-    ),
-    P("M67 15C73 10 91 10 98 15L91 43C88 48 77 49 73 44Z", 0.8, "paper"),
-    P(
-      "M67 15C74 21 92 21 98 15M69 18C75 23 91 23 96 18M68 15C76 13 91 13 97 16",
-      0.45,
-    ),
-    P("M73 43C78 47 86 47 91 42M74 46C78 49 86 49 90 45", 0.45),
-    P(
-      "M71 22 75 41M74 24 77 43M77 24 79 44M94 23 89 42M92 26 88 42",
-      0.26,
-      "none",
-      0.75,
-    ),
-    P("M81 26 82 34 84 37M87 25 86 31M87 35 85 42", 0.28),
-    P(
-      "M72 15 74 16M77 14 79 16M82 14 84 16M87 14 89 16M92 15 94 17M75 45 76 43M79 47 80 45M87 46 88 44",
-      0.28,
-    ),
-    P("M82 47C81 44 86 43 86 46 87 49 83 49 82 47Z", 0.55, "paper"),
-    P("M84 48 84 45M79 29h.1M83 40h.1M88 33h.1M76 36h.1", 0.55),
-  ];
-
-  // III. A fragment held together by the marks of a repair.
-  specimens.stitch = [
-    P(
-      "M18 35 30 31 32 26 42 29 48 24 56 30 68 27 71 32 83 31 80 42 84 49 80 57 84 67 75 68 73 77 62 74 56 79 46 74 36 78 33 72 22 73 24 62 18 55 22 44Z",
-      0.7,
-      "paper",
-    ),
-    P(
-      "M21 37 31 35M35 31 44 34M49 29 56 34M62 33 76 34M78 40 76 47M80 52 76 59M78 65 70 65M68 72 60 70M55 74 47 70M41 73 34 68M28 69 28 61M23 54 27 47",
-      0.3,
-    ),
-    P(
-      "M21 42C37 40 59 44 80 42M21 47C37 45 59 49 81 47M22 52C37 50 59 54 81 52M22 57C37 55 59 59 80 57M25 62C39 60 61 64 81 62M25 67C40 65 59 69 76 67",
-      0.23,
-      "none",
-      0.55,
-    ),
-    P(
-      "M30 34 33 71M36 31 39 73M42 31 45 73M48 29 51 74M54 31 57 74M60 32 63 72M66 31 69 72M72 34 75 66",
-      0.22,
-      "none",
-      0.55,
-    ),
-    P("M52 29C45 39 58 43 49 52S56 63 48 74", 0.85),
-    P(
-      "M48 31 55 34M46 38 54 40M49 44 57 45M47 50 55 52M45 57 53 59M49 64 56 66M46 70 53 73",
-      1.25,
-    ),
-    P(
-      "M47 31C46 29 49 28 49 31M56 34C56 36 54 36 54 34M45 38C44 36 48 35 47 38M55 40C56 42 53 42 53 40M48 44C47 42 50 42 50 44M58 45C59 47 56 48 56 45M46 50C45 48 48 48 48 50M56 52C57 54 54 55 54 52M44 57C43 55 46 54 46 57M54 59C55 62 51 62 52 59M48 64C47 62 50 61 50 64M57 66C58 68 55 69 55 66M45 70C44 68 47 67 47 70M54 73C55 75 52 76 52 73",
-      0.35,
-    ),
-    P("M28 59 73 16C76 13 79 13 78 17L30 60Z", 0.55, "paper"),
-    P("M32 57 73 18M73 17C76 14 78 15 75 18 73 20 72 19 73 17Z", 0.35),
-    P(
-      "M76 17C87 20 83 8 68 10 54 12 55 23 62 24 69 25 70 15 80 18 90 21 89 36 82 39",
-      0.5,
-    ),
-    P(
-      "M20 35 17 32M28 31 27 28M36 28 35 24M44 28 45 25M58 29 60 26M69 28 69 24M81 34 86 33M82 50 87 51M83 66 87 68M73 76 74 80M59 77 59 82M37 77 36 82M22 71 18 74M22 61 18 63M20 46 16 44",
-      0.4,
-    ),
-  ];
-
-  // IV. The folds remain legible, even after the wish is forgotten.
-  specimens.crane = [
-    P(
-      "M10 45 40 51 49 20 57 49 73 36 80 16 89 21 82 25 78 49 64 63 57 77 49 66 32 60Z",
-      0.85,
-      "paper",
-    ),
-    P(
-      "M10 45 49 66 40 51 57 49 49 20M49 66 57 49 64 63 78 49 73 36M57 49 73 36 78 49 82 25M80 16 82 25 89 21M49 66 57 77 64 63",
-      0.6,
-    ),
-    P(
-      "M14 47 37 56 46 63M42 50 49 25 54 48M58 52 63 60 75 48M75 36 79 25M53 66 57 73 61 64",
-      0.3,
-    ),
-    P("M49 66 57 49 55 62 57 77Z", 0.4, "ink", 0.12),
-    P(
-      "M41 52 46 62M43 51 47 59M46 51 49 56M49 51 51 53M58 52 59 58M60 51 62 59M62 49 64 58M64 48 66 56M66 46 68 54M68 45 70 52M70 43 72 50M72 41 74 48M74 40 76 46",
-      0.3,
-    ),
-    P(
-      "M51 66 54 64M53 69 55 67M54 72 56 70M57 74 60 68M80 20 84 22M79 24 81 25M78 28 80 29M77 32 80 33M77 36 79 37M76 40 78 41M76 44 77 45",
-      0.3,
-    ),
-    P(
-      "M29 55 31 54M33 57 35 56M37 59 39 58M50 35 51 38M50 39 51 41M58 60 59 62",
-      0.3,
-    ),
-    P("M80 21h.1", 0.75),
-  ];
-
-  // V. An ordinary tool for deciding what is allowed to remain.
-  specimens.sieve = [
-    P("M62 49 89 22C93 18 98 23 94 27L70 57Z", 0.7, "paper"),
-    P("M67 49 91 25M68 52 91 28M91 23C91 21 94 22 93 24S90 25 91 23", 0.4),
-    P(
-      "M16 43C20 28 55 24 71 38 88 53 69 72 44 75 19 77 7 61 16 43Z",
-      0.9,
-      "paper",
-    ),
-    P(
-      "M17 47C17 62 34 71 51 67 63 65 75 57 75 45L71 60C64 77 31 85 17 65L13 52",
-      0.65,
-    ),
-    P("M18 43C27 32 53 30 67 40 80 49 65 64 46 67 24 70 10 56 18 43Z", 0.55),
-    P("M21 44C30 35 51 34 64 42 75 50 61 61 45 64 26 67 15 55 21 44Z", 0.45),
-    P(
-      "M21 47 44 64M23 42 50 62M28 39 56 60M35 37 62 57M43 37 67 53M51 38 69 49M59 40 68 46M19 52 35 64M20 57 28 63",
-      0.32,
-    ),
-    P(
-      "M22 44 20 54M28 40 24 60M35 38 29 63M42 37 36 64M49 38 43 64M55 40 50 62M61 42 57 59M67 46 64 56",
-      0.32,
-    ),
-    P(
-      "M17 57 19 64M21 61 23 69M25 65 28 73M30 67 33 75M35 69 38 76M40 69 43 76M45 69 48 75M50 68 53 74M55 67 58 72M60 65 63 70M65 62 68 66M70 58 72 61",
-      0.35,
-    ),
-    P(
-      "M23 44 28 43 30 46 26 49 23 47ZM36 50 40 47 44 50 42 54 38 54ZM51 44 55 42 58 45 56 48 52 47ZM46 58 49 55 52 57 51 61 47 61Z",
-      0.55,
-      "paper",
-    ),
-    P("M26 44 28 46 25 47M39 49 41 51 39 53M53 44 55 46M48 57 50 59", 0.3),
-    P(
-      "M27 85 31 82 34 85 32 88 28 88ZM46 88 49 86 52 88 50 91ZM68 80 71 78 74 80 72 84 69 83Z",
-      0.5,
-      "paper",
-    ),
-    P(
-      "M29 84 31 86M48 88 50 89M70 80 72 82M38 81h.1M58 83h.1M63 88h.1M40 91h.1",
-      0.5,
-    ),
-  ];
-
-  // VI. An entrance reconstructed from stones that outlasted its inhabitants.
-  specimens.house = [
-    P(
-      "M12 80 17 55 25 42 32 34 45 28 59 29 72 35 80 48 86 64 88 81 67 82 65 59 60 49 51 45 43 49 36 59 34 81Z",
-      0.8,
-      "paper",
-    ),
-    P(
-      "M18 77 22 57 29 45 37 37 46 32 58 33 68 39 76 51 81 65 83 77M34 81 36 59 43 49 51 45 60 49 65 59 67 82",
-      0.55,
-    ),
-    P(
-      "M17 55 36 59M25 42 43 49M32 34 45 47M45 28 48 45M59 29 55 46M72 35 60 49M80 48 65 59M86 64 66 67M14 66 35 69",
-      0.75,
-    ),
-    P(
-      "M15 69 31 71 30 78 18 77ZM19 56 32 61 31 66 17 63ZM27 44 38 50 34 56 23 52ZM35 37 41 47 44 45 40 34ZM48 32 49 42 53 43 56 33ZM60 35 58 44 61 46 67 40ZM70 42 63 50 66 55 75 50ZM78 55 68 61 69 64 81 62ZM70 70 82 68 84 77 71 78Z",
-      0.25,
-    ),
-    P("M37 78 39 61 45 51 51 48 58 52 62 61 64 79Z", 0.4, "ink", 0.09),
-    P(
-      "M39 77 41 62 46 54M43 79 45 65 49 56M48 79 49 64 52 53M53 79 53 64 54 54M58 79 57 63 57 57M62 78 60 66M38 74 62 62M39 69 60 58M41 63 57 53M38 79 64 66M46 79 64 71M55 79 64 75",
-      0.3,
-      "none",
-      0.6,
-    ),
-    P(
-      "M17 76 21 71M22 78 26 73M27 78 30 74M18 61 23 58M23 64 28 61M26 50 29 47M30 52 33 49M36 41 38 39M49 39 52 36M50 42 54 38M60 42 63 39M65 51 70 47M69 54 73 50M71 62 76 58M76 64 79 61M72 75 77 71M77 77 81 73",
-      0.4,
-    ),
-    P("M8 83C29 80 70 80 93 84M17 86 30 85M70 87 85 87M42 85 51 85", 0.4),
-    P(
-      "M24 84 26 82 29 84M72 84 75 82 77 85M19 52h.1M32 44h.1M42 34h.1M57 32h.1M71 43h.1M82 59h.1M78 73h.1M29 74h.1",
-      0.7,
-    ),
-  ];
-
-  const cache = new Map();
-  function pathFor(d) {
-    if (!cache.has(d)) cache.set(d, new Path2D(d));
-    return cache.get(d);
+  function line(ctx, points) {
+    ctx.beginPath();
+    points.forEach((p, i) => {
+      const q = point(p);
+      if (i === 0) ctx.moveTo(q.x, q.y);
+      else ctx.lineTo(q.x, q.y);
+    });
   }
-  function drawRelic(ctx, type, x, y, size, ink = "#202020") {
-    const paths = specimens[type] || specimens.compass;
-    ctx.save();
-    ctx.translate(x - size / 2, y - size / 2);
-    ctx.scale(size / 100, size / 100);
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    const alpha = ctx.globalAlpha;
-    for (const p of paths) {
-      const path = pathFor(p.d);
-      ctx.globalAlpha = alpha * p.opacity;
-      if (p.fill !== "none") {
-        ctx.fillStyle = p.fill === "paper" ? "#f5f5f5" : ink;
-        ctx.fill(path);
-      }
-      ctx.strokeStyle = ink;
-      ctx.lineWidth = p.width;
-      ctx.stroke(path);
-    }
-    ctx.restore();
+
+  function ellipse(ctx, x, y, rx, ry, angle = 0) {
+    ctx.beginPath();
+    ctx.ellipse(x, y, rx, ry, angle, 0, TAU);
   }
-  function svgRelic(type) {
-    const paths = specimens[type] || specimens.compass;
-    return (
-      '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
-      paths
-        .map(
-          (p) =>
-            '<path d="' +
-            p.d +
-            '" stroke-width="' +
-            p.width +
-            '" fill="' +
-            (p.fill === "paper"
-              ? "#f5f5f5"
-              : p.fill === "ink"
-                ? "currentColor"
-                : "none") +
-            '" opacity="' +
-            p.opacity +
-            '"/>',
-        )
-        .join("") +
-      "</svg>"
-    );
-  }
+
   function drawAnt(ctx, x, y, scale = 1, angle = 0, phase = 0) {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.scale(scale, scale);
-    ctx.strokeStyle = "#222";
-    ctx.fillStyle = "#222";
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    // Each alternating tripod lifts and reaches independently.
+    ctx.strokeStyle = color.ink;
+    ctx.fillStyle = color.ink;
+    ctx.lineWidth = 0.85;
+
+    // Six jointed legs alternate as the ant walks.
     for (let side = -1; side <= 1; side += 2) {
-      for (let i = 0; i < 3; i++) {
-        const step = Math.sin(phase + i * Math.PI + (side > 0 ? Math.PI : 0));
-        const roots = [4, 0.5, -2];
-        const kneeX = [6, -1, -5][i] + step * 0.8;
-        const footX = [9, -0.5, -10][i] + step * 1.7;
-        const kneeY = side * (3.6 + i * 0.45);
-        const footY = side * (7.2 + (i === 1 ? 1.5 : 0) - step * 0.7);
-        ctx.lineWidth = 0.55;
-        ctx.beginPath();
-        ctx.moveTo(roots[i], side * 1.2);
-        ctx.lineTo(kneeX, kneeY);
-        ctx.lineTo(footX, footY);
-        ctx.lineTo(footX + 0.8, footY + side * 0.8);
-        ctx.stroke();
-        ctx.lineWidth = 0.85;
-        ctx.beginPath();
-        ctx.moveTo(roots[i], side * 1.2);
-        ctx.lineTo(kneeX * 0.7 + roots[i] * 0.3, kneeY * 0.75);
+      for (let leg = 0; leg < 3; leg++) {
+        const swing = Math.sin(phase + leg * 2.2 + (side === 1 ? Math.PI : 0));
+        const rootX = 2.3 - leg * 2.3;
+        const kneeX = rootX + (1 - leg) * 2 + swing * 1.2;
+        const toeX = kneeX + (1 - leg) * 2.3 - swing * 1.4;
+        line(ctx, [
+          [rootX, side * 1.0],
+          [kneeX, side * (4.5 + swing * 0.5)],
+          [toeX, side * 7.3],
+        ]);
         ctx.stroke();
       }
     }
-    // Petiole, thorax, head, and a finely striated gaster.
-    ctx.beginPath();
-    ctx.ellipse(-7.5, 0, 5.1, 3.65, 0, 0, Math.PI * 2);
+
+    ellipse(ctx, -6.0, 0, 4.7, 3.3);
     ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(-1.3, 0, 1.9, 1.25, 0, 0, Math.PI * 2);
+    ellipse(ctx, -0.4, 0, 2.4, 1.7);
     ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(2.2, 0, 3.1, 2.1, 0, 0, Math.PI * 2);
+    ellipse(ctx, 4.1, 0, 2.7, 2.35);
     ctx.fill();
-    ctx.beginPath();
-    ctx.ellipse(6.7, 0, 2.8, 2.55, 0, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = "#d8d8d8";
-    ctx.lineWidth = 0.32;
-    for (let n = 0; n < 5; n++) {
-      const k = -10.5 + n * 1.65;
-      ctx.beginPath();
-      ctx.moveTo(k, -2.65 + Math.abs(k + 7.5) * 0.15);
-      ctx.quadraticCurveTo(k + 1.7, 0, k, 2.65 - Math.abs(k + 7.5) * 0.15);
+    ctx.lineWidth = 1.25;
+    line(ctx, [
+      [-4, 0],
+      [1.5, 0],
+      [3, 0],
+    ]);
+    ctx.stroke();
+
+    ctx.lineWidth = 0.7;
+    for (const side of [-1, 1]) {
+      const twitch = Math.sin(phase * 0.42) * 0.35;
+      line(ctx, [
+        [5.4, side * 1.5],
+        [7.7, side * (3.6 + twitch)],
+        [10.2, side * 3.5],
+      ]);
       ctx.stroke();
     }
-    ctx.beginPath();
-    ctx.moveTo(0.4, -0.8);
-    ctx.quadraticCurveTo(2, -1.8, 3.6, -0.9);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(6.1, -1.7);
-    ctx.quadraticCurveTo(7.3, -2, 7.9, -1);
-    ctx.stroke();
-    ctx.strokeStyle = "#222";
+    ctx.strokeStyle = color.paper;
+    ctx.globalAlpha = 0.44;
     ctx.lineWidth = 0.5;
-    for (const side of [-1, 1]) {
-      const flick = Math.sin(phase * 0.6 + side) * 0.55;
-      ctx.beginPath();
-      ctx.moveTo(8.3, side * 1.5);
-      ctx.lineTo(11.5, side * (3.6 + flick));
-      ctx.lineTo(15, side * (3.9 + flick));
+    ctx.beginPath();
+    ctx.arc(-6, 0, 2.3, -1.85, -0.55);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function leaf(ctx, x, y, length, angle, filled = false) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.bezierCurveTo(
+      length * 0.25,
+      -length * 0.34,
+      length * 0.84,
+      -length * 0.24,
+      length,
+      0,
+    );
+    ctx.bezierCurveTo(
+      length * 0.63,
+      length * 0.26,
+      length * 0.23,
+      length * 0.29,
+      0,
+      0,
+    );
+    if (filled) ctx.fill();
+    ctx.stroke();
+    line(ctx, [
+      [0, 0],
+      [length * 0.86, -0.8],
+    ]);
+    ctx.stroke();
+    ctx.lineWidth *= 0.7;
+    for (let i = 1; i < 8; i++) {
+      const xx = length * (0.08 + i * 0.095);
+      line(ctx, [
+        [xx, 0],
+        [xx + length * 0.08, -length * 0.15 * Math.sin(i * 0.36)],
+      ]);
       ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(9.1, side * 0.65);
-      ctx.lineTo(10.4, side * 1.15);
-      ctx.lineTo(10.7, side * 0.3);
+      line(ctx, [
+        [xx, 0],
+        [xx + length * 0.06, length * 0.16 * Math.sin(i * 0.36)],
+      ]);
       ctx.stroke();
     }
     ctx.restore();
   }
-  window.AntArt = { drawRelic, drawAnt, svgRelic };
+
+  function sprig(ctx, x, y, length, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.strokeStyle = "#756d46";
+    ctx.fillStyle = "rgba(111,101,60,0.17)";
+    ctx.lineWidth = 0.85;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.quadraticCurveTo(length * 0.12, -length * 0.5, -length * 0.07, -length);
+    ctx.stroke();
+    for (let i = 0; i < 5; i++) {
+      const h = -length * (0.19 + i * 0.14);
+      const leafLength = length * (0.3 - i * 0.025);
+      leaf(ctx, length * 0.022, h, leafLength, -0.43 - i * 0.06, i % 2 === 0);
+      leaf(
+        ctx,
+        length * 0.022,
+        h - 4,
+        leafLength * 0.81,
+        Math.PI + 0.47,
+        i % 2 === 1,
+      );
+    }
+    ctx.restore();
+  }
+
+  function drawGround(ctx, width, height) {
+    ctx.save();
+    ctx.fillStyle = color.paper;
+    ctx.fillRect(0, 0, width, height);
+
+    // Stable paper speckles: no flicker when the canvas is redrawn.
+    let seed = 1947;
+    const random = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    ctx.fillStyle = color.ink;
+    for (let i = 0; i < 2800; i++) {
+      ctx.globalAlpha = 0.04 + random() * 0.1;
+      const radius = 0.25 + random() * 0.55;
+      ctx.beginPath();
+      ctx.arc(random() * width, random() * height, radius, 0, TAU);
+      ctx.fill();
+    }
+    // A few short fibers and imperfect press marks soften the clean canvas.
+    ctx.strokeStyle = "#827755";
+    ctx.lineWidth = 0.35;
+    for (let i = 0; i < 180; i++) {
+      const x = random() * width;
+      const y = random() * height;
+      ctx.globalAlpha = 0.06 + random() * 0.08;
+      line(ctx, [
+        [x, y],
+        [x + 1 + random() * 4, y + random() * 1.2],
+      ]);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
+    // The faint dotted oval recalls the trail the colony wants to follow.
+    ctx.strokeStyle = "rgba(111,101,60,0.28)";
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 7]);
+    ellipse(ctx, width * 0.5, height * 0.5, width * 0.34, height * 0.25);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    ctx.globalAlpha = 0.82;
+    sprig(ctx, 43, height - 27, 98, -0.23);
+    sprig(ctx, width - 45, 101, 82, 2.9);
+    sprig(ctx, width - 29, height - 26, 55, 0.65);
+    ctx.strokeStyle = color.clay;
+    ctx.lineWidth = 0.8;
+    [
+      [64, 54, 3.6],
+      [77, 61, 2.2],
+      [width - 83, height - 48, 3.7],
+      [width - 95, height - 38, 2],
+    ].forEach(([x, y, r]) => {
+      ellipse(ctx, x, y, r * 1.4, r, -0.3);
+      ctx.stroke();
+    });
+    ctx.globalAlpha = 1;
+
+    // Four quiet escape points. Any screen edge remains a valid exit.
+    [
+      [width / 2, 22, -Math.PI / 2],
+      [width - 22, height / 2, 0],
+      [width / 2, height - 22, Math.PI / 2],
+      [22, height / 2, Math.PI],
+    ].forEach(([x, y, angle]) => {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(angle);
+      ctx.strokeStyle = "rgba(111,101,60,0.65)";
+      ctx.lineWidth = 1.3;
+      line(ctx, [
+        [-13, 0],
+        [8, 0],
+      ]);
+      ctx.stroke();
+      line(ctx, [
+        [2, -5],
+        [8, 0],
+        [2, 5],
+      ]);
+      ctx.stroke();
+      ctx.restore();
+    });
+    ctx.restore();
+  }
+
+  function ring(ctx, x, y, radius, fill, stroke, time = 0) {
+    ctx.save();
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 0.9;
+    ellipse(ctx, x, y, radius, radius);
+    ctx.fill();
+    ctx.setLineDash([2, 7]);
+    ctx.lineDashOffset = -time * 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  function pebble(ctx, x, y, radius) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.strokeStyle = "#635e45";
+    ctx.fillStyle = "#b5ac82";
+    ctx.lineWidth = 1.3;
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    ctx.moveTo(-radius * 0.88, radius * 0.32);
+    ctx.bezierCurveTo(
+      -radius * 1.13,
+      -radius * 0.16,
+      -radius * 0.44,
+      -radius * 0.96,
+      radius * 0.05,
+      -radius * 0.87,
+    );
+    ctx.bezierCurveTo(
+      radius * 0.57,
+      -radius * 0.91,
+      radius * 0.96,
+      -radius * 0.33,
+      radius * 0.94,
+      radius * 0.17,
+    );
+    ctx.bezierCurveTo(
+      radius * 0.96,
+      radius * 0.61,
+      radius * 0.31,
+      radius * 0.92,
+      -radius * 0.13,
+      radius * 0.81,
+    );
+    ctx.bezierCurveTo(
+      -radius * 0.61,
+      radius * 0.88,
+      -radius * 0.87,
+      radius * 0.59,
+      -radius * 0.88,
+      radius * 0.32,
+    );
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(238,226,197,0.75)";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(-radius * 0.59, -radius * 0.25);
+    ctx.quadraticCurveTo(
+      -radius * 0.23,
+      -radius * 0.74,
+      radius * 0.3,
+      -radius * 0.56,
+    );
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(40,38,31,0.42)";
+    ctx.lineWidth = 0.65;
+    for (let i = 0; i < 8; i++) {
+      line(ctx, [
+        [radius * (-0.5 + i * 0.16), radius * (0.6 - Math.abs(i - 4) * 0.04)],
+        [radius * (-0.3 + i * 0.14), radius * (0.19 - Math.abs(i - 4) * 0.025)],
+      ]);
+      ctx.stroke();
+    }
+    for (let i = 0; i < 4; i++) {
+      line(ctx, [
+        [-radius * 0.48, radius * (0.25 + i * 0.1)],
+        [radius * 0.48, radius * (0.05 + i * 0.1)],
+      ]);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function lemon(ctx, x, y, radius) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(-0.17);
+    ellipse(ctx, 0, 0, radius, radius * 0.91);
+    ctx.fillStyle = color.honey;
+    ctx.strokeStyle = "#837044";
+    ctx.lineWidth = 1;
+    ctx.fill();
+    ctx.stroke();
+    ellipse(ctx, 0, 0, radius * 0.81, radius * 0.74);
+    ctx.fillStyle = "#d7c793";
+    ctx.fill();
+    for (let i = 0; i < 7; i++) {
+      const start = (i * TAU) / 7 + 0.08;
+      const end = ((i + 1) * TAU) / 7 - 0.08;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(start) * 3.5, Math.sin(start) * 3.2);
+      ctx.ellipse(0, 0, radius * 0.71, radius * 0.65, 0, start, end);
+      ctx.closePath();
+      ctx.fillStyle = i % 2 ? "#b6a064" : "#c4ad70";
+      ctx.fill();
+      ctx.strokeStyle = "rgba(83,70,37,0.45)";
+      ctx.lineWidth = 0.55;
+      for (let j = 0; j < 4; j++) {
+        const a = start + (end - start) * (0.2 + j * 0.19);
+        const inner = radius * (j % 2 ? 0.35 : 0.23);
+        line(ctx, [
+          [Math.cos(a) * inner, Math.sin(a) * inner * 0.91],
+          [Math.cos(a) * radius * 0.63, Math.sin(a) * radius * 0.57],
+        ]);
+        ctx.stroke();
+      }
+    }
+    ellipse(ctx, 0, 0, 2.4, 2.1);
+    ctx.fillStyle = color.paper;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  function cube(ctx, x, y, size, angle = 0) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.strokeStyle = "#77694e";
+    ctx.lineWidth = 0.8;
+    ctx.lineJoin = "round";
+    const r = size / 2;
+    line(ctx, [
+      [-r, -r * 0.45],
+      [0, -r],
+      [r, -r * 0.45],
+      [r, r * 0.66],
+      [0, r * 1.14],
+      [-r, r * 0.66],
+      [-r, -r * 0.45],
+    ]);
+    ctx.fillStyle = "#f0e7cf";
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = "#c7b899";
+    line(ctx, [
+      [0, r * 0.1],
+      [r, -r * 0.45],
+      [r, r * 0.66],
+      [0, r * 1.14],
+    ]);
+    ctx.closePath();
+    ctx.fill();
+    line(ctx, [
+      [-r, -r * 0.45],
+      [0, r * 0.1],
+      [r, -r * 0.45],
+    ]);
+    ctx.stroke();
+    line(ctx, [
+      [0, r * 0.1],
+      [0, r * 1.14],
+    ]);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(85,75,49,0.6)";
+    ctx.lineWidth = 0.45;
+    for (let i = 1; i < 6; i++) {
+      const xx = (r * i) / 6;
+      line(ctx, [
+        [xx, r * 0.12 - xx * 0.55],
+        [xx, r * 1.1 - xx * 0.48],
+      ]);
+      ctx.stroke();
+    }
+    for (let i = 0; i < 3; i++) {
+      line(ctx, [
+        [0, r * (0.42 + i * 0.21)],
+        [r, r * (0.1 + i * 0.21)],
+      ]);
+      ctx.stroke();
+    }
+    ctx.fillStyle = "rgba(85,75,49,0.5)";
+    [
+      [-3, -2],
+      [-1, -4],
+      [2, -3],
+      [-4, 1],
+    ].forEach(([xx, yy]) => ctx.fillRect(xx, yy, 0.7, 0.7));
+    ctx.restore();
+  }
+
+  function drawObject(ctx, obj, time = 0) {
+    ctx.save();
+    const r = obj.radius || obj.r || 25;
+    if (obj.type === "pebble") pebble(ctx, obj.x, obj.y, r);
+    if (obj.type === "lemon") {
+      ring(
+        ctx,
+        obj.x,
+        obj.y,
+        obj.range || 110,
+        "rgba(181,150,80,0.10)",
+        "rgba(131,112,68,0.36)",
+        time,
+      );
+      lemon(ctx, obj.x, obj.y, Math.min(r, 28));
+    }
+    if (obj.type === "sugar") {
+      ring(
+        ctx,
+        obj.x,
+        obj.y,
+        obj.range || 80,
+        "rgba(177,140,97,0.13)",
+        "rgba(139,105,70,0.32)",
+        -time,
+      );
+      cube(ctx, obj.x - 7, obj.y + 2, 15, -0.12);
+      cube(ctx, obj.x + 8, obj.y - 4, 15, 0.08);
+      cube(ctx, obj.x + 1, obj.y + 12, 12, -0.15);
+      ctx.fillStyle = "#9b8966";
+      [
+        [-17, 10],
+        [14, 13],
+        [20, 5],
+        [-11, -9],
+      ].forEach(([x, y]) => {
+        ctx.save();
+        ctx.translate(obj.x + x, obj.y + y);
+        ctx.rotate(x);
+        ctx.fillRect(-1, -1, 1.8, 1.8);
+        ctx.restore();
+      });
+    }
+    ctx.restore();
+  }
+
+  function drawPath(ctx, path, time = 0) {
+    const points = path.points || path;
+    if (!points || points.length === 0) return;
+    const type = path.type || "barrier";
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (type === "barrier") {
+      ctx.lineWidth = path.width || 12;
+      ctx.strokeStyle = color.clay;
+      line(ctx, points);
+      if (points.length === 1) {
+        const p = point(points[0]);
+        ctx.lineTo(p.x + 0.01, p.y);
+      }
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(238,226,197,0.50)";
+      ctx.lineWidth = 0.8;
+      ctx.setLineDash([3, 4, 12, 3]);
+      for (const shift of [-2.4, 2.4]) {
+        ctx.save();
+        ctx.translate(shift * 0.45, shift);
+        line(ctx, points);
+        ctx.stroke();
+        ctx.restore();
+      }
+    } else {
+      ctx.strokeStyle = "rgba(130,123,82,0.16)";
+      ctx.lineWidth = 13;
+      line(ctx, points);
+      ctx.stroke();
+      ctx.strokeStyle = color.blue;
+      ctx.lineWidth = 2.5;
+      ctx.setLineDash([1, 8]);
+      ctx.lineDashOffset = -time * 5;
+      line(ctx, points);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      if (points.length > 1) {
+        const end = point(points[points.length - 1]);
+        let before = point(points[points.length - 2]);
+        for (let i = points.length - 2; i >= 0; i--) {
+          before = point(points[i]);
+          if (Math.hypot(end.x - before.x, end.y - before.y) > 8) break;
+        }
+        const angle = Math.atan2(end.y - before.y, end.x - before.x);
+        ctx.translate(end.x, end.y);
+        ctx.rotate(angle);
+        ctx.lineWidth = 1.8;
+        line(ctx, [
+          [-8, -5],
+          [0, 0],
+          [-8, 5],
+        ]);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  function drawCursor(ctx, tool, x, y, time = 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = color.ink;
+    ctx.lineWidth = 1;
+    if (tool === "pebble") pebble(ctx, x, y, 25);
+    else if (tool === "lemon") lemon(ctx, x, y, 23);
+    else if (tool === "sugar") cube(ctx, x, y, 17, -0.08);
+    else if (tool === "breeze") {
+      ring(
+        ctx,
+        x,
+        y,
+        74,
+        "rgba(130,123,82,0.07)",
+        "rgba(112,102,63,0.44)",
+        time,
+      );
+      ctx.strokeStyle = color.blue;
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 3; i++) {
+        const yy = y + (i - 1) * 12;
+        ctx.beginPath();
+        ctx.moveTo(x - 24, yy);
+        ctx.bezierCurveTo(x - 9, yy + 5, x + 8, yy - 5, x + 20, yy);
+        ctx.bezierCurveTo(x + 32, yy + 4, x + 30, yy - 11, x + 22, yy - 9);
+        ctx.stroke();
+      }
+    } else {
+      const radius = tool === "eraser" ? 28 : tool === "trail" ? 5 : 7;
+      ctx.strokeStyle =
+        tool === "trail"
+          ? color.blue
+          : tool === "barrier"
+            ? color.clay
+            : color.ink;
+      if (tool === "eraser") ctx.setLineDash([3, 4]);
+      ellipse(ctx, x, y, radius, radius);
+      ctx.stroke();
+      if (tool === "eraser") {
+        line(ctx, [
+          [x - 4, y],
+          [x + 4, y],
+        ]);
+        ctx.stroke();
+      }
+    }
+    ctx.restore();
+  }
+
+  const svg = (body) =>
+    `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke-linecap="round" stroke-linejoin="round">${body}</g></svg>`;
+  const icons = {
+    barrier: svg(
+      '<path d="M8 30c6-8 5-16 12-17s8 3 12-4" stroke="#9f482e" stroke-width="7"/><path d="M7 29c7-8 6-15 13-15s9 2 12-3M10 31c5-7 6-16 11-15" stroke="#eee2c5" stroke-width=".7" opacity=".6"/>',
+    ),
+    pebble: svg(
+      '<path d="M8 25C5 20 10 9 19 8s15 6 15 13-9 12-15 11-9-3-11-7Z" fill="#b5ac82" stroke="#635e45" stroke-width="1.4"/><path d="M12 18c2-5 7-7 12-5" stroke="#eee2c5"/><path d="m23 28 3-5m1 4 3-5" stroke="#635e45" opacity=".5"/><path d="m10 23 4-5m-1 8 5-7m-2 10 6-8m-2 9 5-7m-14 2 13 3m-12-6 15 3" stroke="#635e45" stroke-width=".6"/>',
+    ),
+    lemon: svg(
+      '<ellipse cx="20" cy="20" rx="14" ry="13" fill="#b59650" stroke="#837044"/><ellipse cx="20" cy="20" rx="11" ry="10" fill="#d7c793"/><path d="m20 11 1 7 7-4-6 5 8 2-8 1 4 7-6-6-5 6 3-7-8-1 8-2-5-5 6 4Z" fill="#b59650"/><circle cx="20" cy="20" r="2" fill="#eee2c5"/><path d="m22 13 1 4m1-3 1 2m3 2-4 1m4 4-4-1m-2 5-1-4m-4 4 1-4m-5-1 4-1m-4-4 4 2m-1-6 2 4" stroke="#837044" stroke-width=".55"/>',
+    ),
+    sugar: svg(
+      '<circle cx="20" cy="22" r="16" fill="#d7bb99" opacity=".65"/><path d="m7 15 8-4 8 4v10l-8 4-8-4Zm15-4 6-3 7 4v9l-7 4-6-4Z" fill="#f0e7cf" stroke="#77694e"/><path d="m15 19 8-4v10l-8 4Zm13-3 7-4v9l-7 4Z" fill="#c7b899"/><path d="m7 15 8 4 8-4m-8 4v10m7-18 6 5 7-4m-7 4v9" stroke="#77694e"/><path d="m13 27 7-3 7 4v8l-7 3-7-4Z" fill="#f0e7cf" stroke="#77694e"/><path d="m13 27 7 4 7-3m-7 3v8" stroke="#77694e"/><path d="m17 19 1 8m1-9 1 8m1-9 1 8m8-8 1 7m1-8 1 7m-10 7v7m2-8v7m-8-11 6-1m-6-2 6-1" stroke="#77694e" stroke-width=".5"/>',
+    ),
+    trail: svg(
+      '<path d="M7 30C5 14 22 31 23 18s7-9 10-10" stroke="#827b52" stroke-width="2.5" stroke-dasharray="1 5"/><path d="m26 7 7 1-1 7" stroke="#827b52" stroke-width="1.6"/>',
+    ),
+    breeze: svg(
+      '<path d="M5 13h19c10 0 9-9 3-8M8 21h23c7 0 6-8 1-7M5 29h16c10 0 9 9 3 8" stroke="#827b52" stroke-width="1.8"/><path d="M8 17h8M12 25h11" stroke="#827b52" opacity=".35"/>',
+    ),
+    eraser: svg(
+      '<path d="m9 29-3-5a3 3 0 0 1 0-4L22 6a3 3 0 0 1 4 0l8 8a3 3 0 0 1 0 4L22 30H10Z" fill="#eee2c5" stroke="#28261f" stroke-width="1.3"/><path d="m13 14 13 13 8-9a3 3 0 0 0 0-4l-8-8a3 3 0 0 0-4 0Z" fill="#d7bb99"/><path d="m13 14 13 13M8 34h24" stroke="#28261f" stroke-width="1.3"/>',
+    ),
+  };
+
+  // An original engraved specimen for the title-page vignette. The hatchwork
+  // follows the body contours, as it would in a copperplate field illustration.
+  const abdomenHatch = Array.from({ length: 20 }, (_, i) => {
+    const x = 36 + i * 3;
+    return `<path d="M${x} 63 Q${x - 13} 85 ${x + 3} 109"/>`;
+  }).join("");
+  const bodyHatch = Array.from({ length: 16 }, (_, i) => {
+    const y = 47 + i * 3;
+    return `<path d="M105 ${y} Q137 ${y + 12} 172 ${y - 7}"/>`;
+  }).join("");
+  const bodyCrosshatch = Array.from({ length: 10 }, (_, i) => {
+    const x = 113 + i * 5;
+    return `<path d="M${x} 44 Q${x - 10} 70 ${x + 8} 91"/>`;
+  }).join("");
+  const legSpines = [
+    [88, 44, -3, -3],
+    [84, 42, -2, -4],
+    [80, 40, -2, -4],
+    [75, 38, -2, -4],
+    [102, 118, -4, 0],
+    [101, 122, -4, 0],
+    [99, 126, -4, 1],
+    [151, 113, 3, -3],
+    [156, 115, 3, -3],
+    [161, 117, 3, -3],
+    [153, 88, 1, -4],
+    [159, 88, 1, -4],
+    [165, 87, 0, -4],
+    [127, 37, 3, -2],
+    [126, 32, 3, -2],
+    [126, 27, 3, -2],
+    [69, 114, -3, -2],
+    [66, 117, -3, -2],
+    [63, 121, -3, -2],
+  ]
+    .map(([x, y, dx, dy]) => `<path d="M${x} ${y}l${dx} ${dy}"/>`)
+    .join("");
+
+  icons.antplate = `<svg viewBox="0 0 220 160" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <clipPath id="ant-plate-abdomen"><path d="M37 80C40 64 57 59 75 64C87 67 94 75 94 85C93 97 79 109 60 107C42 106 33 94 37 80Z"/></clipPath>
+      <clipPath id="ant-plate-body"><path d="M106 78C108 66 119 63 130 68C136 69 139 70 141 67C138 60 143 48 153 47C165 44 174 52 173 62C173 71 165 79 155 78L144 76C135 86 121 91 111 85Z"/></clipPath>
+    </defs>
+    <g stroke="#28261f" stroke-linecap="round" stroke-linejoin="round">
+      <g stroke-width=".55" opacity=".60">
+        <path d="M17 124h36M22 127h20M184 108h20M190 111h12"/>
+        <path d="M20 51h23l11 9M182 36h19M179 38l-12 10" stroke-dasharray="1 2.5"/>
+      </g>
+      <g fill="#28261f" stroke-width=".8">
+        <path d="m115 72-23-24-25-12-22-12 21 15 24 12 22 25Z"/>
+        <path d="m127 70-4-28 3-23 4-7-6 6-4 25 3 28Z"/>
+        <path d="m135 74 23 16 25-2 16 8-15-11-25 2-21-17Z"/>
+        <path d="m130 80 16 29 30 13 17 14-15-16-28-14-16-29Z"/>
+        <path d="m118 83-9 23-9 27-15 9 17-7 10-28 11-22Z"/>
+        <path d="m110 83-28 19-19 20-20 8 22-6 19-19 28-18Z"/>
+      </g>
+      <g stroke-width=".45" opacity=".8">${legSpines}</g>
+      <g stroke="#eee2c5" stroke-width=".5">
+        <path d="m114 73-23-24-23-12M125 69l-3-26 4-24M137 74l22 15 24-2M132 81l16 26 29 14M120 84l-10 23-9 26M111 85l-28 19-19 19"/>
+      </g>
+      <path d="M88 82C95 77 99 77 101 81C104 75 108 76 110 81L112 85C105 84 103 85 101 85C96 88 92 87 88 87Z" fill="#28261f" stroke-width="1.1"/>
+      <path d="M96 79q-2-7 2-8 3 0 3 8M104 78q0-6 3-5 2 0 2 5" fill="#28261f" stroke-width=".6"/>
+      <path d="M37 80C40 64 57 59 75 64C87 67 94 75 94 85C93 97 79 109 60 107C42 106 33 94 37 80Z" fill="#28261f" stroke-width="1.2"/>
+      <g clip-path="url(#ant-plate-abdomen)" stroke="#eee2c5" stroke-width=".65" opacity=".85">${abdomenHatch}
+        <path d="M36 73Q57 60 85 74M35 78Q59 64 90 80M34 83Q61 68 93 85M35 88Q61 73 92 89M38 93Q63 80 89 95M44 99Q65 86 85 101" stroke-width=".42"/>
+      </g>
+      <path d="M39 78C46 64 65 63 79 70" stroke="#eee2c5" stroke-width="1.2"/>
+      <path d="M106 78C108 66 119 63 130 68C136 69 139 70 141 67C138 60 143 48 153 47C165 44 174 52 173 62C173 71 165 79 155 78L144 76C135 86 121 91 111 85Z" fill="#eee2c5" stroke-width="1.3"/>
+      <g clip-path="url(#ant-plate-body)" stroke-width=".65">${bodyHatch}${bodyCrosshatch}
+        <path d="M106 82q13 9 29-3M107 80q13 9 29-3M107 78q13 9 29-3M142 70q19 7 30-10M143 72q18 7 29-9M144 74q16 7 28-9"/>
+      </g>
+      <path d="M110 74q7-9 16-4M144 56q8-9 18-5" stroke="#eee2c5" stroke-width="1.1"/>
+      <path d="M134 72q5 2 8 1M137 78q-6 4-7 6" stroke-width="1"/>
+      <ellipse cx="160" cy="56" rx="3.4" ry="4.2" transform="rotate(24 160 56)" fill="#28261f"/>
+      <path d="m159 53 1 1" stroke="#eee2c5" stroke-width=".8"/>
+      <path d="M169 54 182 38 204 27M170 58 190 48 207 49" stroke-width="1.4"/>
+      <path d="M171 53 182 36 204 25M171 57 190 46 207 47" stroke-width=".4"/>
+      <path d="m204 27 3-3m0 25 3-1" stroke-width="2.1"/>
+      <path d="m172 65 8-2 3 5-8 4 4-5-6 1M170 72l5 3 5-2-5 5-6-3" fill="#28261f" stroke-width=".7"/>
+      <path d="m41 70-2-3m7 0-2-4m8 1-1-4m7 3v-4m7 5 1-4m8 6 1-3m10 9 3-2M42 101l-2 3m10 1-1 4m9-2v4m10-4 1 4m8-7 2 3" stroke-width=".5"/>
+    </g>
+    <g fill="#6e6347" font-family="Georgia,serif" font-style="italic" font-size="7">
+      <text x="17" y="47">a.</text><text x="200" y="35">b.</text>
+      <text x="99" y="153" font-style="normal" letter-spacing="1.5">FIG. I</text>
+    </g>
+  </svg>`;
+
+  window.AntArt = {
+    drawAnt,
+    drawGround,
+    drawObject,
+    drawPath,
+    drawCursor,
+    icons,
+  };
 })();

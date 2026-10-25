@@ -1,160 +1,179 @@
 <!doctype html>
-<html lang="ko">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <link
-      rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' fill='%23f4f4f4'/%3E%3Ctext x='32' y='47' text-anchor='middle' font-size='47' fill='%23222222'%3E※%3C/text%3E%3C/svg%3E"
-    />
-    <meta name="theme-color" content="#f4f4f4" />
+    <meta name="theme-color" content="#eee2c5" />
     <meta
       name="description"
-      content="개미의 길을 그리고, 묻힌 사물을 발견하고, 무엇을 남길지 선택하는 흑백 철학 게임."
+      content="Break the trail. Make a little mess. Guide every ant out of the garden with six playful tools."
     />
-    <title>개미 발굴 도감 — 남겨진 것들의 고고학</title>
-    <link rel="stylesheet" href="style.css?v=3" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect rx='16' width='64' height='64' fill='%239f482e'/%3E%3Cpath d='M16 44 25 22 35 39 48 17' stroke='%23eee2c5' fill='none' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+    <title>Out of line — a little ant game</title>
+    <link rel="stylesheet" href="style.css?v=4" />
   </head>
   <body>
-    <div class="paper-grain" aria-hidden="true"></div>
     <main class="page">
       <header class="masthead">
-        <a class="wordmark" href="#" aria-label="개미 발굴 도감 처음 화면"
-          ><span class="mark" aria-hidden="true">※</span> 작은 존재의 고고학
-          <span class="mast-en">ARCHAEOLOGY OF THE SMALL</span></a
+        <a class="wordmark" href="#" aria-label="Out of line home"
+          ><span class="brand-mark" aria-hidden="true">↝</span> SMALL
+          INTERVENTIONS <span class="edition">PLAY STUDY № 01</span></a
         >
-        <nav aria-label="게임 메뉴">
-          <button id="journalBtn">
-            발굴 기록 <span id="journalCount">00</span></button
-          ><button id="aboutBtn">
-            작업 노트 <span aria-hidden="true">↗</span></button
-          ><button id="helpBtn" aria-label="플레이 방법">?</button>
+        <nav aria-label="Game controls">
+          <button id="helpBtn" class="text-button">
+            How to play <span aria-hidden="true">↗</span>
+          </button>
+          <button id="resetBtn" class="reset-button">
+            <span aria-hidden="true">↻</span> Start over
+          </button>
         </nav>
       </header>
 
-      <section class="introduction" aria-labelledby="title">
-        <div>
-          <p class="eyebrow">
-            AN INTERACTIVE FIELD NOTE <span>—</span> VOL. 01
-          </p>
-          <h1 id="title">
-            개미 발굴 도감<span class="title-star" aria-hidden="true">✳</span>
-          </h1>
-          <p class="subtitle">
-            남겨진 것들의 고고학 <span> / </span> An archaeology of what remains
-          </p>
+      <section class="intro" aria-labelledby="title">
+        <div class="intro-copy">
+          <div class="title-row">
+            <h1 id="title">Out of <em>line.</em></h1>
+          </div>
+          <p>Break the trail. Get every ant out.</p>
         </div>
-        <div class="intro-note">
-          <span class="note-index">관찰자의 메모 / 001</span>
-          <p>
-            우리는 무언가를 찾기 위해 땅을 파지만,<br />때로는 남겨 두기 위해
-            발견한다.
-          </p>
-          <div class="intro-rule"></div>
-          <span class="small"
-            >개미 한 마리 · 세 개의 지층 · 정답 없는 기록</span
-          >
-        </div>
+        <div class="ant-plate" id="antPlate" aria-hidden="true"></div>
       </section>
+      <div class="book-frieze" aria-hidden="true"></div>
 
-      <section class="expedition" aria-label="발굴 게임">
-        <div class="field-column">
-          <div class="field-heading">
-            <div>
-              <span class="status-dot"></span
-              ><span id="chapterLabel">제 I 지층</span
-              ><span class="divider">/</span
-              ><strong id="chapterTitle">이름과 흐름</strong>
+      <section class="game-layout" aria-label="Ant garden game">
+        <div class="board-column">
+          <div class="board-heading">
+            <span class="garden-label"
+              ><i aria-hidden="true"></i> THE FIELD</span
+            >
+            <div class="scoreboard" aria-label="Game progress">
+              <span><strong id="remaining">120</strong> in</span>
+              <span class="out-score"
+                ><strong id="escaped">0</strong> out
+                <span aria-hidden="true">↗</span></span
+              >
+              <span class="clock" id="timer" aria-label="Elapsed time"
+                >00:00</span
+              >
             </div>
-            <span class="small mono" id="fieldRef">FIELD A — 01</span>
           </div>
           <div class="field" id="field">
             <canvas
               id="terrain"
-              aria-label="개미에게 길을 그려 주는 발굴 현장. 표시를 누르면 그곳으로 이동합니다."
               tabindex="0"
+              aria-label="Ant garden. Choose a tool, then draw, click, or hold here. All four edges are exits. Arrow keys move a cursor; Enter uses the selected tool."
             ></canvas>
-            <div class="map-caption">
-              <span>발굴 구역 A</span><small>SITE PLAN · NOT TO SCALE</small>
+            <div class="edge-label top-edge" aria-hidden="true">
+              OPEN ENDS, NEW POSSIBILITIES
             </div>
-            <div class="compass" aria-hidden="true">
-              <span>N</span><b>↑</b><small>W ─ E</small>
+            <div class="pause-overlay" id="pauseOverlay" hidden>
+              <span>Take a breath.</span
+              ><button id="resumeBtn">Keep going →</button>
             </div>
-            <div id="siteMarkers"></div>
-            <button class="camp" id="campBtn" aria-label="기록대로 이동">
-              <span class="camp-icon" aria-hidden="true">⌑</span
-              ><span>기록대</span><small>BASE</small>
-            </button>
-            <div class="scale" aria-hidden="true">
-              <i></i><span>0</span><span>5 ant-lengths</span>
+            <div
+              class="win-panel"
+              id="winPanel"
+              hidden
+              role="region"
+              aria-labelledby="winTitle"
+            >
+              <span class="win-flower" aria-hidden="true">✳</span>
+              <span class="eyebrow">A BEAUTIFUL DISRUPTION</span>
+              <h2 id="winTitle">Everyone<br />found a way.</h2>
+              <p id="winSummary">Every ant found a way out.</p>
+              <button id="againBtn">
+                Make another mess <span aria-hidden="true">↗</span>
+              </button>
             </div>
-            <div class="map-bottom">흙 아래에도 길은 있다.</div>
-            <div class="arrival" id="arrival" hidden>
-              <span>무언가가 닿았다.</span
-              ><button id="excavateBtn">흙을 들추기 ↗</button>
-            </div>
+            <div
+              class="small-toast"
+              id="toast"
+              role="status"
+              aria-live="polite"
+            ></div>
           </div>
-          <div class="field-instructions">
-            <span class="instruction-symbol" aria-hidden="true">⌁</span>
-            <p id="liveHint" role="status" aria-live="polite">
-              × 표시를 누르거나, 선을 그어 개미에게 길을 알려 주세요.
+          <div class="board-footer">
+            <p id="toolHint">
+              <span class="hint-dot" aria-hidden="true"></span> Draw a wall
+              across their path.
             </p>
-            <button id="pauseBtn" aria-label="개미 움직임 일시정지">Ⅱ</button>
+            <button
+              id="pauseBtn"
+              class="icon-button"
+              aria-label="Pause game"
+              title="Pause (Space)"
+            >
+              Ⅱ
+            </button>
           </div>
         </div>
 
-        <aside class="field-notes" aria-label="현재 발굴 메모">
-          <div class="aside-top">
-            <span class="eyebrow">FIELD NOTES</span
-            ><span class="small mono" id="chapterPage">01 / 03</span>
+        <aside class="toolbox" aria-label="Your tools">
+          <div class="toolbox-heading">
+            <h2>Instruments</h2>
+            <span aria-hidden="true">↙</span>
           </div>
-          <p class="serif-large" id="thought">
-            이름을 지우면,<br />그것은 무엇으로 남을까?
-          </p>
-          <div class="specimen-portrait" id="portrait" aria-hidden="true"></div>
-          <div class="note-content">
-            <span class="note-index" id="noteIndex">지층에 들어서며</span>
-            <h2 id="noteTitle">아직 읽히지 않은 땅</h2>
-            <p id="noteText">
-              두 개의 흔적이 묻혀 있습니다. 작은 ×를 따라가 보세요. 서두를
-              필요는 없습니다.
-            </p>
+          <div class="tools" id="tools"></div>
+          <div class="toolbox-bottom">
+            <button id="eraseBtn" class="utility-button" aria-pressed="false">
+              <span id="eraserIcon" aria-hidden="true"></span> Erase
+              <kbd>E</kbd>
+            </button>
+            <button id="clearBtn" class="utility-button">
+              Clear tools <span aria-hidden="true">↺</span>
+            </button>
           </div>
-          <button class="next-layer" id="nextBtn" hidden>
-            다음 지층으로 내려가기 <span>↓</span>
-          </button>
-          <div class="layer-progress">
-            <span id="layerProgress">이 지층의 기록</span
-            ><span class="mono" id="layerCount">00 / 02</span>
-            <div class="progress-line"><i id="progressFill"></i></div>
+          <div class="toolbox-note">
+            <span class="tiny-flower" aria-hidden="true">✽</span>
+            <p>No squishing.<br />Just a change of plans.</p>
           </div>
         </aside>
       </section>
-
-      <section class="cabinet" aria-labelledby="cabinetTitle">
-        <div class="cabinet-heading">
-          <h2 id="cabinetTitle">발굴 도판 <span>THE SPECIMEN INDEX</span></h2>
-          <span class="small">채집한 것과, 남겨 둔 것.</span>
-        </div>
-        <div class="specimen-grid" id="specimenGrid"></div>
-      </section>
-      <footer>
-        <span
-          >HOW TO WIN A FIGHT AGAINST ANTS <span class="footer-sep">/</span> A
-          PLAYABLE INTERPRETATION</span
-        ><span id="footerMessage">승리 조건: 아직 정해지지 않음.</span>
+      <footer class="page-footer">
+        <span>A SMALL EXPERIMENT IN COLLECTIVE DIRECTION</span
+        ><span>Follow less. Wander more.</span>
       </footer>
     </main>
 
-    <dialog id="modal" aria-labelledby="modalTitle">
-      <button class="close-modal" id="closeModal" aria-label="닫기">×</button>
-      <div id="modalContent"></div>
+    <dialog id="helpDialog" aria-labelledby="helpTitle">
+      <button
+        id="closeHelp"
+        class="close-button"
+        aria-label="Close instructions"
+      >
+        ×
+      </button>
+      <span class="eyebrow">THE SHORT VERSION</span>
+      <h2 id="helpTitle">Change their plans.</h2>
+      <p>Block the line. Gather a crowd. Send them off course.</p>
+      <p>Every edge is an exit. Get every ant out to win.</p>
+      <div class="help-tip">
+        <strong>Try this</strong
+        ><span
+          >Draw a scent trail from the ants to an edge.<br />Add lemon or a
+          breeze for a little push.</span
+        >
+      </div>
+      <details>
+        <summary>Keyboard controls</summary>
+        <p>
+          1–6: tools · E: eraser · Space: pause.<br />Focus the garden, then use
+          arrow keys to move. Enter places a tool. For chalk or scent, press
+          Enter to start a line and Enter again to finish. Hold Enter for a
+          breeze.
+        </p>
+      </details>
+      <button id="startHelp" class="primary-button">Let's make a mess →</button>
     </dialog>
-    <script src="art.js?v=3"></script>
-    <script src="story.js?v=3"></script>
-    <script src="game.js?v=3"></script>
+    <script src="story.js?v=4"></script>
+    <script src="simulation.js?v=4"></script>
+    <script src="art.js?v=4"></script>
+    <script src="game.js?v=4"></script>
   </body>
 </html>
