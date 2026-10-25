@@ -1,6 +1,6 @@
 # Out of line
 
-A leaf-green ant-routing game with articulated ants, a live escape meter, and six illustrated tools. Break the trail and help every ant leave the garden.
+A hand-painted ant-routing game on a richly textured leaf, with articulated ants, natural object sprites, and six tools. Break the trail and help every ant leave the garden.
 
 - [Play](https://ofjrobj.github.io/ant-archaeology-fieldbook/)
 - [Edit in your browser](https://github.dev/ofjrobj/ant-archaeology-fieldbook)
@@ -36,9 +36,11 @@ Open `http://localhost:4173` beside your editor. Saving any game source file aut
 | `index.html`    | Page structure and controls                          |
 | `style.css`     | Layout, typography, and colors                       |
 | `story.js`      | Game configuration and interface copy                |
-| `art.js`        | Ants, tools, and field illustrations                 |
+| `art.js`        | Ants, tools, and field rendering                     |
 | `simulation.js` | Ant movement, tool interactions, and exit rules      |
 | `game.js`       | Canvas rendering, pointer input, and interface state |
+
+The original leaf painting and transparent tool sprites live in `assets/`. Replace these images to change the scenery or materials. The dev server watches image changes too.
 
 ## Check and build
 
@@ -64,4 +66,4 @@ There is no compilation step for GitHub Pages. `.nojekyll` keeps the static file
 
 ## Inspiration
 
-Inspired by J Yoon's [How to Win a Fight Against Ants](https://undecember27.wpcomstaging.com/web-based-work/ants/). No account, external fonts, images, or game server are required.
+Inspired by J Yoon's [How to Win a Fight Against Ants](https://undecember27.wpcomstaging.com/web-based-work/ants/). The leaf and tool images were created for this game with the built-in image generation tool. All artwork is bundled locally; no account, external fonts, or game server are required.

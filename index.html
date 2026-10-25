@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#596a3c" />
+    <meta name="theme-color" content="#18251a" />
     <meta
       name="description"
       content="Break the trail. Make a little mess. Guide every ant out of the garden with six playful tools."
@@ -16,7 +16,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect rx='16' width='64' height='64' fill='%239f482e'/%3E%3Cpath d='M16 44 25 22 35 39 48 17' stroke='%23eee2c5' fill='none' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E"
     />
     <title>Out of line — a little ant game</title>
-    <link rel="stylesheet" href="style.css?v=5" />
+    <link rel="stylesheet" href="style.css?v=6" />
   </head>
   <body>
     <main class="page">
@@ -85,7 +85,10 @@
           >
             0 of 120 ants escaped
           </progress>
-          <div class="field" id="field">
+          <div class="field" id="field" aria-busy="true">
+            <div class="asset-loading" id="assetLoading" role="status">
+              Loading the leaf…
+            </div>
             <canvas
               id="terrain"
               tabindex="0"
@@ -130,7 +133,7 @@
 
         <aside class="toolbox" aria-label="Your tools">
           <div class="toolbox-heading">
-            <h2>Your tools</h2>
+            <h2>Field kit</h2>
             <span class="tool-shortcuts" aria-hidden="true">1 — 6</span>
           </div>
           <div class="tools" id="tools"></div>
@@ -184,9 +187,9 @@
       </details>
       <button id="startHelp" class="primary-button">Let's play →</button>
     </dialog>
-    <script src="story.js?v=5"></script>
-    <script src="simulation.js?v=5"></script>
-    <script src="art.js?v=5"></script>
-    <script src="game.js?v=5"></script>
+    <script src="story.js?v=6"></script>
+    <script src="simulation.js?v=6"></script>
+    <script src="art.js?v=6"></script>
+    <script src="game.js?v=6"></script>
   </body>
 </html>

@@ -1,4 +1,4 @@
-/* Original botanical drawings and anatomically articulated ants. */
+/* Painted botanical surfaces, natural objects, and articulated ants. */
 (() => {
   "use strict";
 
@@ -12,6 +12,131 @@
     rose: "#d7bb99",
   };
   const TAU = Math.PI * 2;
+  const images = {};
+  const ready = Promise.all(
+    [
+      ["ground", "assets/leaf-surface.png"],
+      ["tools", "assets/tool-sprites.png"],
+    ].map(
+      ([key, url]) =>
+        new Promise((resolve) => {
+          const image = new Image();
+          image.onload = () => {
+            images[key] = image;
+            resolve(true);
+          };
+          image.onerror = () => resolve(false);
+          image.src = url;
+        }),
+    ),
+  ).then(([leaf, sprites]) => ({ leaf, sprites }));
+  let antBody;
+  const chalkPatterns = new WeakMap();
+  const spriteCells = {
+    barrier: [0, 0],
+    pebble: [1, 0],
+    lemon: [0, 1],
+    sugar: [1, 1],
+  };
+
+  function drawSprite(ctx, type, x, y, size, angle = 0) {
+    const image = images.tools;
+    if (!image || !spriteCells[type]) return false;
+    const [column, row] = spriteCells[type];
+    const cellWidth = image.naturalWidth / 2;
+    const cellHeight = image.naturalHeight / 2;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    ctx.drawImage(
+      image,
+      column * cellWidth,
+      row * cellHeight,
+      cellWidth,
+      cellHeight,
+      -size / 2,
+      -size / 2,
+      size,
+      size,
+    );
+    ctx.restore();
+    return true;
+  }
+
+  function contactShadow(ctx, x, y, radius, opacity = 0.3) {
+    const shade = ctx.createRadialGradient(x, y, radius * 0.1, x, y, radius);
+    shade.addColorStop(0, `rgba(13,24,8,${opacity})`);
+    shade.addColorStop(0.6, `rgba(13,24,8,${opacity * 0.5})`);
+    shade.addColorStop(1, "rgba(13,24,8,0)");
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(1, 0.57);
+    ctx.translate(-x, -y);
+    ctx.fillStyle = shade;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    ctx.restore();
+  }
+
+  function makeAntBody() {
+    const canvas = document.createElement("canvas");
+    canvas.width = 128;
+    canvas.height = 96;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(4, 4);
+    ctx.translate(16, 12);
+    ctx.shadowColor = "rgba(6,18,4,.5)";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2.5;
+    ctx.shadowOffsetY = 4;
+    ctx.fillStyle = "#172013";
+    ellipse(ctx, -6.8, 0, 4.6, 3.1);
+    ctx.fill();
+    ellipse(ctx, -0.1, 0, 2.6, 1.7);
+    ctx.fill();
+    ellipse(ctx, 4.6, 0, 2.65, 2.15);
+    ctx.fill();
+    ctx.shadowColor = "transparent";
+    const shell = (x, y, rx, ry, light, mid, dark) => {
+      const gradient = ctx.createRadialGradient(
+        x - rx * 0.35,
+        y - ry * 0.56,
+        0.05,
+        x,
+        y,
+        rx * 1.08,
+      );
+      gradient.addColorStop(0, light);
+      gradient.addColorStop(0.3, mid);
+      gradient.addColorStop(0.8, dark);
+      gradient.addColorStop(1, "#090f09");
+      ctx.fillStyle = gradient;
+      ellipse(ctx, x, y, rx, ry);
+      ctx.fill();
+    };
+    shell(-3, 0, 1.15, 0.82, "#655c37", "#322a1c", "#14190f");
+    shell(-6.9, 0, 4.5, 3.05, "#83764e", "#403b25", "#141a10");
+    shell(-0.1, 0, 2.5, 1.6, "#947045", "#573e25", "#261d12");
+    shell(4.55, 0, 2.65, 2.2, "#88714e", "#403623", "#171b10");
+    ctx.lineWidth = 0.28;
+    ctx.strokeStyle = "rgba(169,155,102,.65)";
+    for (const offset of [-1.05, 0.8]) {
+      ctx.beginPath();
+      ctx.ellipse(-6.8 + offset, 0, 2.45, 2.78, 0, -1.25, 1.25);
+      ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(238,229,185,.58)";
+    ctx.lineWidth = 0.32;
+    ctx.beginPath();
+    ctx.ellipse(-6.8, -0.2, 3.7, 2.4, 0, 3.65, 4.95);
+    ctx.stroke();
+    ellipse(ctx, -0.8, -0.65, 1, 0.2);
+    ctx.fillStyle = "rgba(230,208,152,.48)";
+    ctx.fill();
+    for (const side of [-1, 1]) {
+      shell(4.65, side * 1.6, 0.65, 0.48, "#646c50", "#171d11", "#070c07");
+    }
+    return canvas;
+  }
   const point = (p) => (Array.isArray(p) ? { x: p[0], y: p[1] } : p);
 
   function line(ctx, points) {
@@ -29,87 +154,81 @@
   }
 
   function drawAnt(ctx, x, y, scale = 1, angle = 0, phase = 0) {
+    if (!antBody) antBody = makeAntBody();
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.scale(scale, scale);
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    ctx.strokeStyle = color.ink;
-    ctx.fillStyle = color.ink;
-    ctx.lineWidth = 0.7;
 
-    // Alternating tripods: front and rear legs move opposite the middle leg.
-    const legRoots = [1.4, -0.2, -1.6];
-    const legKnees = [4.0, -0.3, -4.5];
-    const legFeet = [6.8, -1.2, -7.8];
-    for (let side = -1; side <= 1; side += 2) {
+    // Six jointed legs use an alternating tripod gait; the body is cached.
+    const roots = [1.4, -0.2, -1.6];
+    const knees = [4.0, -0.3, -4.5];
+    const feet = [6.8, -1.2, -7.8];
+    const legs = [];
+    for (const side of [-1, 1]) {
       for (let leg = 0; leg < 3; leg++) {
         const swing = Math.sin(
           phase + (leg === 1 ? Math.PI : 0) + (side === 1 ? Math.PI : 0),
         );
-        const kneeX = legKnees[leg] + swing * 0.75;
-        const toeX = legFeet[leg] - swing * 1.25;
-        const toeY = side * (6.7 - Math.max(0, swing) * 0.65);
-        line(ctx, [
-          [legRoots[leg], side * 1.0],
-          [kneeX, side * 3.7],
-          [toeX, toeY],
-          [toeX + (leg === 0 ? 0.9 : -0.7), toeY + side * 0.4],
-        ]);
-        ctx.stroke();
+        const toeX = feet[leg] - swing * 1.3;
+        const toeY = side * (6.6 - Math.max(0, swing) * 0.8);
+        legs.push({
+          rootX: roots[leg],
+          side,
+          kneeX: knees[leg] + swing * 0.8,
+          kneeY: side * (3.5 + Math.max(0, swing) * 0.3),
+          toeX,
+          toeY,
+          tipX: toeX + (leg === 0 ? 0.8 : -0.7),
+        });
       }
     }
-
-    // A narrow petiole connects the large gaster to the muscular thorax.
-    ctx.fillStyle = "#302f24";
-    ellipse(ctx, -3.1, 0, 1.1, 0.85);
-    ctx.fill();
-    ctx.fillStyle = "#20251d";
-    ellipse(ctx, -7.0, 0, 4.5, 3.05, 0.02);
-    ctx.fill();
-    ctx.fillStyle = "#39382a";
-    ellipse(ctx, -0.1, 0, 2.4, 1.65);
-    ctx.fill();
-    ctx.fillStyle = "#24291f";
-    ellipse(ctx, 4.6, 0, 2.65, 2.25, -0.04);
-    ctx.fill();
-
-    // Restrained reflected light makes the body rounded without heavy shadows.
-    ctx.fillStyle = "rgba(154,156,123,0.36)";
-    ellipse(ctx, -7.4, -1.15, 2.7, 0.65, -0.13);
-    ctx.fill();
-    ellipse(ctx, -0.2, -0.62, 1.25, 0.4, -0.08);
-    ctx.fill();
-    ellipse(ctx, 4.2, -0.85, 1.45, 0.48, -0.15);
-    ctx.fill();
-    ctx.strokeStyle = "rgba(179,185,149,0.28)";
-    ctx.lineWidth = 0.45;
-    for (const offset of [-0.85, 1.05]) {
-      ctx.beginPath();
-      ctx.ellipse(-7 + offset, 0, 2.4, 2.7, 0, -1.03, 1.03);
-      ctx.stroke();
+    ctx.strokeStyle = "rgba(15,22,8,.25)";
+    ctx.lineWidth = 1.15;
+    ctx.beginPath();
+    for (const leg of legs) {
+      ctx.moveTo(leg.rootX + 0.7, leg.side + 1.2);
+      ctx.lineTo(leg.kneeX + 0.7, leg.kneeY + 1.2);
+      ctx.lineTo(leg.toeX + 0.7, leg.toeY + 1.2);
     }
-
-    ctx.strokeStyle = color.ink;
-    ctx.lineWidth = 0.58;
+    ctx.stroke();
+    ctx.strokeStyle = "#332c1c";
+    ctx.lineWidth = 0.91;
+    ctx.beginPath();
+    for (const leg of legs) {
+      ctx.moveTo(leg.rootX, leg.side);
+      ctx.lineTo(leg.kneeX, leg.kneeY);
+    }
+    ctx.stroke();
+    ctx.strokeStyle = "#1e2716";
+    ctx.lineWidth = 0.57;
+    ctx.beginPath();
+    for (const leg of legs) {
+      ctx.moveTo(leg.kneeX, leg.kneeY);
+      ctx.lineTo(leg.toeX, leg.toeY);
+      ctx.lineTo(leg.tipX, leg.toeY + leg.side * 0.45);
+    }
+    ctx.stroke();
+    ctx.drawImage(antBody, -16, -12, 32, 24);
+    ctx.strokeStyle = "#202719";
+    ctx.lineWidth = 0.52;
     for (const side of [-1, 1]) {
-      const twitch = Math.sin(phase * 0.42 + side * 0.8) * 0.42;
+      const twitch = Math.sin(phase * 0.42 + side * 0.8) * 0.48;
       line(ctx, [
-        [6.0, side * 1.15],
+        [6.1, side * 1.1],
         [8.4, side * (3.1 + twitch)],
-        [11.0, side * (2.45 + twitch)],
+        [11.1, side * (2.45 + twitch)],
       ]);
       ctx.stroke();
+      ctx.lineWidth = 0.6;
       line(ctx, [
-        [6.7, side * 0.55],
-        [7.8, side * 0.75],
-        [7.55, side * 0.12],
+        [6.6, side * 0.55],
+        [7.9, side * 0.65],
+        [7.55, side * 0.1],
       ]);
       ctx.stroke();
-      ctx.fillStyle = "#10150f";
-      ellipse(ctx, 4.25, side * 1.72, 0.57, 0.39, side * 0.2);
-      ctx.fill();
     }
     ctx.restore();
   }
@@ -189,49 +308,78 @@
 
   function drawGround(ctx, width, height) {
     ctx.save();
-    ctx.fillStyle = color.paper;
+    if (images.ground) {
+      const image = images.ground;
+      const cover = Math.max(
+        width / image.naturalWidth,
+        height / image.naturalHeight,
+      );
+      const sourceW = width / cover;
+      const sourceH = height / cover;
+      ctx.drawImage(
+        image,
+        (image.naturalWidth - sourceW) / 2,
+        (image.naturalHeight - sourceH) / 2,
+        sourceW,
+        sourceH,
+        0,
+        0,
+        width,
+        height,
+      );
+    } else {
+      const green = ctx.createLinearGradient(0, 0, width, height);
+      green.addColorStop(0, "#c1cf76");
+      green.addColorStop(0.4, "#a4b965");
+      green.addColorStop(1, "#668941");
+      ctx.fillStyle = green;
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "rgba(227,231,165,.2)";
+      ctx.lineWidth = 6;
+      line(ctx, [
+        [0, height],
+        [width, 0],
+      ]);
+      ctx.stroke();
+      ctx.lineWidth = 1.3;
+      for (let i = 1; i < 14; i++) {
+        const x = (width * i) / 14;
+        const y = height * (1 - i / 14);
+        line(ctx, [
+          [x, y],
+          [x - width * 0.12, 0],
+        ]);
+        ctx.stroke();
+        line(ctx, [
+          [x, y],
+          [x + width * 0.2, height],
+        ]);
+        ctx.stroke();
+      }
+    }
+    const light = ctx.createLinearGradient(0, 0, width, height);
+    light.addColorStop(0, "rgba(251,244,191,.07)");
+    light.addColorStop(0.48, "rgba(251,244,191,0)");
+    light.addColorStop(1, "rgba(21,46,14,.08)");
+    ctx.fillStyle = light;
     ctx.fillRect(0, 0, width, height);
 
-    // A clean field keeps tiny ants readable; veins stay around the margins.
-    ctx.strokeStyle = "#91a975";
-    ctx.fillStyle = "#e1ebce";
-    ctx.lineWidth = 0.9;
-    ctx.globalAlpha = 0.4;
-    leaf(ctx, 12, height - 14, 152, -1.88, true);
-    leaf(ctx, width - 12, 14, 139, 1.24, true);
-    ctx.globalAlpha = 0.26;
-    sprig(ctx, width - 19, height - 15, 66, 0.46);
-    ctx.globalAlpha = 1;
-
-    // The faint dotted oval marks the colony's starting trail.
-    ctx.strokeStyle = "rgba(91,120,63,0.18)";
-    ctx.lineWidth = 1;
-    ctx.setLineDash([2, 7]);
-    ellipse(ctx, width * 0.5, height * 0.5, width * 0.34, height * 0.25);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Four quiet escape points. Any screen edge remains a valid exit.
+    // The field itself stays free of UI; small edge notches hint at escape.
     [
-      [width / 2, 22, -Math.PI / 2],
-      [width - 22, height / 2, 0],
-      [width / 2, height - 22, Math.PI / 2],
-      [22, height / 2, Math.PI],
+      [width / 2, 18, -Math.PI / 2],
+      [width - 18, height / 2, 0],
+      [width / 2, height - 18, Math.PI / 2],
+      [18, height / 2, Math.PI],
     ].forEach(([x, y, angle]) => {
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(angle);
-      ctx.strokeStyle = "rgba(87,117,58,0.62)";
-      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = "rgba(246,248,207,.62)";
+      ctx.lineWidth = 1.4;
       line(ctx, [
-        [-13, 0],
-        [8, 0],
-      ]);
-      ctx.stroke();
-      line(ctx, [
-        [2, -5],
-        [8, 0],
-        [2, 5],
+        [-4, -4],
+        [0, 0],
+        [-4, 4],
       ]);
       ctx.stroke();
       ctx.restore();
@@ -433,50 +581,91 @@
     ctx.restore();
   }
 
+  function scentAura(ctx, x, y, radius, rgb, time) {
+    const gradient = ctx.createRadialGradient(x, y, 12, x, y, radius);
+    gradient.addColorStop(0, `rgba(${rgb},.14)`);
+    gradient.addColorStop(0.55, `rgba(${rgb},.045)`);
+    gradient.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = gradient;
+    ctx.fillRect(x - radius, y - radius, radius * 2, radius * 2);
+    // A few drifting pollen flecks replace a hard mechanical radius circle.
+    for (let i = 0; i < 11; i++) {
+      const angle = i * 2.39996 + time * 0.035;
+      const distance = radius * (0.25 + ((i * 0.19 + time * 0.025) % 0.64));
+      const alpha = 0.2 + Math.sin(time * 0.8 + i) * 0.12;
+      ctx.fillStyle = `rgba(${rgb},${alpha})`;
+      ellipse(
+        ctx,
+        x + Math.cos(angle) * distance,
+        y + Math.sin(angle) * distance,
+        0.8,
+        0.55,
+        angle,
+      );
+      ctx.fill();
+    }
+  }
+
   function drawObject(ctx, obj, time = 0) {
     ctx.save();
     const r = obj.radius || obj.r || 25;
-    if (obj.type === "pebble") pebble(ctx, obj.x, obj.y, r);
+    if (obj.type === "pebble") {
+      contactShadow(ctx, obj.x + 3, obj.y + r * 0.62, r * 1.35, 0.45);
+      if (!drawSprite(ctx, "pebble", obj.x, obj.y, r * 2.85, -0.12))
+        pebble(ctx, obj.x, obj.y, r);
+    }
     if (obj.type === "lemon") {
-      ring(
-        ctx,
-        obj.x,
-        obj.y,
-        obj.range || 110,
-        "rgba(181,150,80,0.10)",
-        "rgba(131,112,68,0.36)",
-        time,
-      );
-      lemon(ctx, obj.x, obj.y, Math.min(r, 28));
+      scentAura(ctx, obj.x, obj.y, obj.range || 110, "250,222,123", time);
+      contactShadow(ctx, obj.x + 2, obj.y + r * 0.62, r * 1.22, 0.3);
+      if (
+        !drawSprite(ctx, "lemon", obj.x, obj.y, Math.min(r, 28) * 3.25, -0.14)
+      )
+        lemon(ctx, obj.x, obj.y, Math.min(r, 28));
     }
     if (obj.type === "sugar") {
-      ring(
-        ctx,
-        obj.x,
-        obj.y,
-        obj.range || 80,
-        "rgba(177,140,97,0.13)",
-        "rgba(139,105,70,0.32)",
-        -time,
-      );
-      cube(ctx, obj.x - 7, obj.y + 2, 15, -0.12);
-      cube(ctx, obj.x + 8, obj.y - 4, 15, 0.08);
-      cube(ctx, obj.x + 1, obj.y + 12, 12, -0.15);
-      ctx.fillStyle = "#9b8966";
+      scentAura(ctx, obj.x, obj.y, obj.range || 80, "249,237,190", -time);
+      contactShadow(ctx, obj.x + 2, obj.y + 14, 29, 0.33);
+      if (!drawSprite(ctx, "sugar", obj.x, obj.y, 67, 0.08)) {
+        cube(ctx, obj.x - 7, obj.y + 2, 15, -0.12);
+        cube(ctx, obj.x + 8, obj.y - 4, 15, 0.08);
+        cube(ctx, obj.x + 1, obj.y + 12, 12, -0.15);
+      }
+      ctx.fillStyle = "rgba(246,242,218,.75)";
       [
-        [-17, 10],
-        [14, 13],
-        [20, 5],
-        [-11, -9],
+        [-21, 13],
+        [18, 15],
+        [25, 4],
+        [-16, -12],
       ].forEach(([x, y]) => {
         ctx.save();
         ctx.translate(obj.x + x, obj.y + y);
         ctx.rotate(x);
-        ctx.fillRect(-1, -1, 1.8, 1.8);
+        ctx.fillRect(-0.8, -0.8, 1.5, 1.5);
         ctx.restore();
       });
     }
     ctx.restore();
+  }
+
+  function chalkPattern(ctx) {
+    if (chalkPatterns.has(ctx)) return chalkPatterns.get(ctx);
+    const tile = document.createElement("canvas");
+    tile.width = tile.height = 64;
+    const brush = tile.getContext("2d");
+    let seed = 481;
+    const random = () => {
+      seed = (seed * 16807) % 2147483647;
+      return seed / 2147483647;
+    };
+    for (let i = 0; i < 620; i++) {
+      const x = random() * 64;
+      const y = random() * 64;
+      brush.fillStyle = i % 3 ? "rgba(255,214,163,.35)" : "rgba(63,29,13,.28)";
+      brush.fillRect(x, y, 0.45 + random() * 1.2, 0.4 + random() * 0.7);
+    }
+    const pattern = ctx.createPattern(tile, "repeat");
+    chalkPatterns.set(ctx, pattern);
+    return pattern;
   }
 
   function drawPath(ctx, path, time = 0) {
@@ -486,35 +675,49 @@
     ctx.save();
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    if (type === "barrier") {
-      ctx.lineWidth = path.width || 12;
-      ctx.strokeStyle = color.clay;
+    const trace = () => {
       line(ctx, points);
       if (points.length === 1) {
         const p = point(points[0]);
         ctx.lineTo(p.x + 0.01, p.y);
       }
+    };
+    if (type === "barrier") {
+      const width = path.width || 12;
+      trace();
+      ctx.lineWidth = width + 7;
+      ctx.strokeStyle = "rgba(174,92,51,.12)";
       ctx.stroke();
-      ctx.strokeStyle = "rgba(245,248,234,0.50)";
-      ctx.lineWidth = 0.8;
-      ctx.setLineDash([3, 4, 12, 3]);
-      for (const shift of [-2.4, 2.4]) {
+      ctx.lineWidth = width + 2;
+      ctx.strokeStyle = "rgba(129,61,34,.38)";
+      ctx.stroke();
+      ctx.lineWidth = width - 1;
+      ctx.strokeStyle = "#b6754d";
+      ctx.stroke();
+      ctx.strokeStyle = chalkPattern(ctx);
+      ctx.stroke();
+      ctx.lineWidth = 0.65;
+      ctx.strokeStyle = "rgba(251,211,162,.42)";
+      ctx.setLineDash([1, 3, 5, 2]);
+      for (const shift of [-2.4, 1.8]) {
         ctx.save();
-        ctx.translate(shift * 0.45, shift);
-        line(ctx, points);
+        ctx.translate(shift * 0.4, shift);
+        trace();
         ctx.stroke();
         ctx.restore();
       }
     } else {
-      ctx.strokeStyle = "rgba(105,124,67,0.16)";
-      ctx.lineWidth = 13;
-      line(ctx, points);
+      trace();
+      ctx.lineWidth = 10;
+      ctx.strokeStyle = "rgba(211,237,207,.08)";
       ctx.stroke();
-      ctx.strokeStyle = color.blue;
-      ctx.lineWidth = 2.5;
-      ctx.setLineDash([1, 8]);
-      ctx.lineDashOffset = -time * 5;
-      line(ctx, points);
+      ctx.lineWidth = 3.4;
+      ctx.strokeStyle = "rgba(32,64,31,.2)";
+      ctx.setLineDash([0.3, 9]);
+      ctx.lineDashOffset = -time * 9;
+      ctx.stroke();
+      ctx.strokeStyle = "#ecedb8";
+      ctx.lineWidth = 1.8;
       ctx.stroke();
       ctx.setLineDash([]);
       if (points.length > 1) {
@@ -527,11 +730,11 @@
         const angle = Math.atan2(end.y - before.y, end.x - before.x);
         ctx.translate(end.x, end.y);
         ctx.rotate(angle);
-        ctx.lineWidth = 1.8;
+        ctx.lineWidth = 1.2;
         line(ctx, [
-          [-8, -5],
+          [-7, -3.5],
           [0, 0],
-          [-8, 5],
+          [-7, 3.5],
         ]);
         ctx.stroke();
       }
@@ -541,24 +744,28 @@
 
   function drawCursor(ctx, tool, x, y, time = 0) {
     ctx.save();
-    ctx.globalAlpha = 0.55;
-    ctx.strokeStyle = color.ink;
+    ctx.globalAlpha = 0.72;
+    ctx.strokeStyle = "#f7f1cf";
     ctx.lineWidth = 1;
-    if (tool === "pebble") pebble(ctx, x, y, 25);
-    else if (tool === "lemon") lemon(ctx, x, y, 23);
-    else if (tool === "sugar") cube(ctx, x, y, 17, -0.08);
-    else if (tool === "breeze") {
+    if (tool === "pebble") {
+      contactShadow(ctx, x + 2, y + 16, 34, 0.4);
+      if (!drawSprite(ctx, tool, x, y, 77, -0.12)) pebble(ctx, x, y, 25);
+    } else if (tool === "lemon") {
+      if (!drawSprite(ctx, tool, x, y, 81, -0.14)) lemon(ctx, x, y, 23);
+    } else if (tool === "sugar") {
+      if (!drawSprite(ctx, tool, x, y, 67, 0.08)) cube(ctx, x, y, 17, -0.08);
+    } else if (tool === "breeze") {
       ring(
         ctx,
         x,
         y,
         74,
-        "rgba(105,124,67,0.07)",
-        "rgba(112,102,63,0.44)",
+        "rgba(193,233,219,.035)",
+        "rgba(221,247,223,.3)",
         time,
       );
-      ctx.strokeStyle = color.blue;
-      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#d0eada";
+      ctx.lineWidth = 1.1;
       for (let i = 0; i < 3; i++) {
         const yy = y + (i - 1) * 12;
         ctx.beginPath();
@@ -569,13 +776,8 @@
       }
     } else {
       const radius = tool === "eraser" ? 28 : tool === "trail" ? 5 : 7;
-      ctx.strokeStyle =
-        tool === "trail"
-          ? color.blue
-          : tool === "barrier"
-            ? color.clay
-            : color.ink;
-      if (tool === "eraser") ctx.setLineDash([3, 4]);
+      ctx.strokeStyle = tool === "barrier" ? "#f1bb83" : "#edf1c6";
+      if (tool === "eraser") ctx.setLineDash([3, 5]);
       ellipse(ctx, x, y, radius, radius);
       ctx.stroke();
       if (tool === "eraser") {
@@ -614,6 +816,18 @@
       '<path d="m9 29-3-5a3 3 0 0 1 0-4L22 6a3 3 0 0 1 4 0l8 8a3 3 0 0 1 0 4L22 30H10Z" fill="#f5f8ea" stroke="#252b21" stroke-width="1.3"/><path d="m13 14 13 13 8-9a3 3 0 0 0 0-4l-8-8a3 3 0 0 0-4 0Z" fill="#d7bb99"/><path d="m13 14 13 13M8 34h24" stroke="#252b21" stroke-width="1.3"/>',
     ),
   };
+
+  const spriteIcon = (column, row) =>
+    `<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><image href="assets/tool-sprites.png" width="1024" height="1024" x="${-column * 512}" y="${-row * 512}"/></svg>`;
+  Object.entries(spriteCells).forEach(([key, cell]) => {
+    icons[key] = spriteIcon(...cell);
+  });
+  icons.trail = svg(
+    '<path d="M6 31c-1-11 8-6 13-12S22 9 33 7" stroke="#e6d7a0" stroke-width="2.2" stroke-dasharray=".6 5"/><path d="m26 6 7 1-2 6" stroke="#f5e9ba" stroke-width="1.1"/><circle cx="8" cy="29" r="3" fill="#e6d7a0" opacity=".14"/><circle cx="21" cy="17" r="4" fill="#e6d7a0" opacity=".12"/>',
+  );
+  icons.breeze = svg(
+    '<path d="M5 13h19c10 0 9-9 3-8M8 21h23c7 0 6-8 1-7M5 29h16c10 0 9 9 3 8" stroke="#c5dfd5" stroke-width="1.5"/><path d="M8 17h8M12 25h11" stroke="#c5dfd5" stroke-width=".8" opacity=".4"/>',
+  );
 
   // An original engraved specimen for the title-page vignette. The hatchwork
   // follows the body contours, as it would in a copperplate field illustration.
@@ -703,6 +917,7 @@
   </svg>`;
 
   window.AntArt = {
+    ready,
     drawAnt,
     drawGround,
     drawObject,

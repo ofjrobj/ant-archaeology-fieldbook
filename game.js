@@ -4,6 +4,7 @@
   const config = window.ANT_CONFIG;
   const physics = window.AntSimulation;
   const art = window.AntArt;
+  let artReady = !art.ready;
   $("antPlate").innerHTML = art.icons.antplate || "";
   const canvas = $("terrain");
   const ctx = canvas.getContext("2d");
@@ -221,7 +222,7 @@
     if (selected === "eraser") physics.eraseAt(model, point, 38);
     else physics.applyTool(model, selected, [point]);
   }
-  const canPlay = () => !paused && !model.won && !help.open;
+  const canPlay = () => artReady && !paused && !model.won && !help.open;
   canvas.addEventListener("pointerdown", (event) => {
     if (
       !canPlay() ||
@@ -490,6 +491,14 @@
   selectTool(selected);
   updateStats();
   resize();
+  Promise.resolve(art.ready).then(() => {
+    artReady = true;
+    ground = null;
+    lastTime = 0;
+    $("assetLoading").hidden = true;
+    $("field").setAttribute("aria-busy", "false");
+    resize();
+  });
   if (restored && !model.won) toast("Back to your little experiment.");
   requestAnimationFrame(frame);
 })();
