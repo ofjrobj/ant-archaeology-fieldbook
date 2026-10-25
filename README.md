@@ -40,7 +40,7 @@ Open `http://localhost:4173` beside your editor. Saving any game source file aut
 | `simulation.js` | Ant movement, tool interactions, and exit rules      |
 | `game.js`       | Canvas rendering, pointer input, and interface state |
 
-The original leaf painting and transparent tool sprites live in `assets/`. Replace these images to change the scenery or materials. The dev server watches image changes too.
+The original leaf painting, transparent tool sprites, and bundled book fonts live in `assets/`. Replace the images to change the scenery or materials. The dev server watches asset changes too. Typography and its subtle engraved highlights are controlled in `style.css`.
 
 ## Check and build
 
@@ -66,4 +66,6 @@ There is no compilation step for GitHub Pages. `.nojekyll` keeps the static file
 
 ## Inspiration
 
-Inspired by J Yoon's [How to Win a Fight Against Ants](https://undecember27.wpcomstaging.com/web-based-work/ants/). The leaf and tool images were created for this game with the built-in image generation tool. All artwork is bundled locally; no account, external fonts, or game server are required.
+Inspired by J Yoon's [How to Win a Fight Against Ants](https://undecember27.wpcomstaging.com/web-based-work/ants/). The leaf and tool images were created for this game with the built-in image generation tool. All artwork and fonts are bundled locally; no account, external font requests, or game server are required.
+
+Titles and tool labels use [IM Fell English](https://github.com/google/fonts/tree/main/ofl/imfellenglish) and [IM Fell English SC](https://github.com/google/fonts/tree/main/ofl/imfellenglishsc), licensed under the SIL Open Font License. Full licenses are included beside the fonts in `assets/` and in the offline build.

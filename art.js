@@ -823,10 +823,10 @@
     icons[key] = spriteIcon(...cell);
   });
   icons.trail = svg(
-    '<path d="M6 31c-1-11 8-6 13-12S22 9 33 7" stroke="#e6d7a0" stroke-width="2.2" stroke-dasharray=".6 5"/><path d="m26 6 7 1-2 6" stroke="#f5e9ba" stroke-width="1.1"/><circle cx="8" cy="29" r="3" fill="#e6d7a0" opacity=".14"/><circle cx="21" cy="17" r="4" fill="#e6d7a0" opacity=".12"/>',
+    '<path d="M6 31c-1-11 8-6 13-12S22 9 33 7" stroke="#8b7940" stroke-width="2.2" stroke-dasharray=".6 5"/><path d="m26 6 7 1-2 6" stroke="#6c653a" stroke-width="1.1"/><circle cx="8" cy="29" r="3" fill="#8b7940" opacity=".14"/><circle cx="21" cy="17" r="4" fill="#8b7940" opacity=".12"/>',
   );
   icons.breeze = svg(
-    '<path d="M5 13h19c10 0 9-9 3-8M8 21h23c7 0 6-8 1-7M5 29h16c10 0 9 9 3 8" stroke="#c5dfd5" stroke-width="1.5"/><path d="M8 17h8M12 25h11" stroke="#c5dfd5" stroke-width=".8" opacity=".4"/>',
+    '<path d="M5 13h19c10 0 9-9 3-8M8 21h23c7 0 6-8 1-7M5 29h16c10 0 9 9 3 8" stroke="#5d8175" stroke-width="1.5"/><path d="M8 17h8M12 25h11" stroke="#5d8175" stroke-width=".8" opacity=".4"/>',
   );
 
   // An original engraved specimen for the title-page vignette. The hatchwork
