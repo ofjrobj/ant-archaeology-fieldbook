@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { readFile, realpath, stat } from "node:fs/promises";
 import { spawnSync } from "node:child_process";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -39,8 +39,16 @@ for (const match of css.matchAll(
 )) {
   references.add((match[1] ?? match[2] ?? match[3]).trim());
 }
+for (const filename of scripts.filter((file) => !file.startsWith("scripts/"))) {
+  const source = await readFile(path.join(root, filename), "utf8");
+  for (const match of source.matchAll(
+    /(?:\.\/)?assets\/[a-z\d][a-z\d._-]*\.(?:png|jpe?g|webp|avif|gif|svg)(?:\?[^"'`\s)<>\\#]*)?(?:#[^"'`\s)<>\\]*)?/gi,
+  ))
+    references.add(match[0]);
+}
 
 let checked = 0;
+const rootPath = await realpath(root);
 for (const reference of references) {
   // 외부 URL, 인라인 이미지, 같은 페이지 안의 링크는 파일 검사에서 제외합니다.
   if (!reference || /^(?:[a-z][a-z\d+.-]*:|\/\/|#|\?)/i.test(reference))
@@ -53,9 +61,20 @@ for (const reference of references) {
   if (!filename.startsWith(root))
     throw new Error(`프로젝트 밖의 파일 참조: ${reference}`);
   try {
-    await access(filename);
+    const resolved = await realpath(filename);
+    const relativePath = path.relative(rootPath, resolved);
+    if (
+      relativePath === ".." ||
+      relativePath.startsWith(`..${path.sep}`) ||
+      path.isAbsolute(relativePath)
+    )
+      throw new Error(`프로젝트 밖의 파일 참조: ${reference}`);
+    if (!(await stat(resolved)).isFile())
+      throw new Error(`참조가 파일이 아닙니다: ${reference}`);
   } catch {
-    throw new Error(`참조한 로컬 파일이 없습니다: ${reference}`);
+    throw new Error(
+      `참조한 로컬 파일이 없거나 사용할 수 없습니다: ${reference}`,
+    );
   }
   checked++;
 }

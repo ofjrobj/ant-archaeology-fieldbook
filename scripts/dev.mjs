@@ -1,6 +1,6 @@
 import http from "node:http";
 import { watch } from "node:fs";
-import { readFile, realpath } from "node:fs/promises";
+import { lstat, readFile, realpath } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -14,6 +14,20 @@ const files = new Map([
   ["simulation.js", "text/javascript; charset=utf-8"],
   ["game.js", "text/javascript; charset=utf-8"],
 ]);
+const imageTypes = new Map([
+  [".png", "image/png"],
+  [".jpg", "image/jpeg"],
+  [".jpeg", "image/jpeg"],
+  [".webp", "image/webp"],
+  [".avif", "image/avif"],
+  [".gif", "image/gif"],
+  [".svg", "image/svg+xml"],
+]);
+const assetDirectory = path.join(rootPath, "assets");
+function assetType(filename) {
+  if (!/^assets\/[a-z\d][a-z\d._-]*$/i.test(filename)) return undefined;
+  return imageTypes.get(path.extname(filename).toLowerCase());
+}
 
 let portValue = process.env.PORT ?? "4173";
 for (let i = 2; i < process.argv.length; i++) {
@@ -78,7 +92,9 @@ const server = http.createServer(async (request, response) => {
 
   // 서비스할 파일을 명시적으로 제한하여 .git, 숨김 파일, 상위 경로를 노출하지 않습니다.
   const filename = pathname === "/" ? "index.html" : pathname.slice(1);
-  if (!files.has(filename)) {
+  const imageType = assetType(filename);
+  const contentType = files.get(filename) ?? imageType;
+  if (!contentType) {
     response.writeHead(404);
     response.end("Not found");
     return;
@@ -86,18 +102,18 @@ const server = http.createServer(async (request, response) => {
 
   try {
     const filepath = await realpath(path.join(root, filename));
-    if (path.dirname(filepath) !== rootPath) {
+    if (path.dirname(filepath) !== (imageType ? assetDirectory : rootPath)) {
       response.writeHead(403);
       response.end("Forbidden");
       return;
     }
-    let content = await readFile(filepath, "utf8");
+    let content = await readFile(filepath, imageType ? undefined : "utf8");
     if (filename === "index.html") {
       content = /<\/body\s*>/i.test(content)
         ? content.replace(/<\/body\s*>/i, () => `${reloadScript}\n</body>`)
         : `${content}\n${reloadScript}`;
     }
-    response.writeHead(200, { "Content-Type": files.get(filename) });
+    response.writeHead(200, { "Content-Type": contentType });
     response.end(request.method === "HEAD" ? undefined : content);
   } catch (error) {
     response.writeHead(error.code === "ENOENT" ? 404 : 500);
@@ -107,15 +123,48 @@ const server = http.createServer(async (request, response) => {
 
 // 폴더를 감시하면 편집기가 파일을 교체하여 저장해도 계속 변경을 감지합니다.
 let reloadTimer;
-const watcher = watch(root, (_event, filename) => {
-  if (!files.has(filename?.toString())) return;
+function reload() {
   clearTimeout(reloadTimer);
   reloadTimer = setTimeout(() => {
     for (const client of clients)
       client.write("event: reload\ndata: changed\n\n");
     console.log("파일 변경 감지 → 미리보기 새로고침");
   }, 150);
+}
+let assetWatcher;
+let closing = false;
+async function watchAssets() {
+  if (assetWatcher || closing) return;
+  const directory = await lstat(assetDirectory).catch(() => null);
+  if (
+    !directory?.isDirectory() ||
+    directory.isSymbolicLink() ||
+    closing ||
+    assetWatcher
+  )
+    return;
+  try {
+    assetWatcher = watch(assetDirectory, (_event, filename) => {
+      if (!filename || assetType(`assets/${filename}`)) reload();
+    });
+    assetWatcher.on("error", () => {
+      assetWatcher?.close();
+      assetWatcher = undefined;
+    });
+  } catch {
+    // 폴더를 교체하는 저장 작업은 다음 루트 변경 이벤트에서 다시 감시합니다.
+  }
+}
+const watcher = watch(root, (_event, filename) => {
+  const name = filename?.toString();
+  if (name === "assets") {
+    assetWatcher?.close();
+    assetWatcher = undefined;
+    void watchAssets();
+    reload();
+  } else if (files.has(name)) reload();
 });
+await watchAssets();
 const heartbeat = setInterval(() => {
   for (const client of clients) client.write(": keep-alive\n\n");
 }, 15000);
@@ -127,6 +176,8 @@ server.on("error", (error) => {
       : error.message,
   );
   watcher.close();
+  closing = true;
+  assetWatcher?.close();
   clearInterval(heartbeat);
   process.exitCode = 1;
 });
@@ -138,7 +189,9 @@ server.listen(port, "127.0.0.1", () => {
 });
 
 function stop() {
+  closing = true;
   watcher.close();
+  assetWatcher?.close();
   clearInterval(heartbeat);
   clearTimeout(reloadTimer);
   for (const client of clients) client.end();
