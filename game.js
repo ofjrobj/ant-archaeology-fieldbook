@@ -131,6 +131,7 @@
     $("toast").classList.remove("visible");
     $("pauseBtn").textContent = "Ⅱ";
     $("pauseBtn").setAttribute("aria-label", "Pause game");
+    $("sessionState").textContent = "IN PLAY";
     previousEscaped = -1;
     displayTime = "";
     selectTool("barrier");
@@ -142,6 +143,7 @@
     paused = value;
     cancelGesture();
     $("pauseOverlay").hidden = !paused;
+    $("sessionState").textContent = paused ? "PAUSED" : "IN PLAY";
     $("pauseBtn").textContent = paused ? "▷" : "Ⅱ";
     $("pauseBtn").setAttribute(
       "aria-label",
@@ -152,6 +154,26 @@
   $("resumeBtn").addEventListener("click", () => togglePause(false));
   $("resetBtn").addEventListener("click", restart);
   $("againBtn").addEventListener("click", restart);
+  const fullscreenButton = $("fullscreenBtn");
+  if (!document.fullscreenEnabled) fullscreenButton.hidden = true;
+  fullscreenButton.addEventListener("click", async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.querySelector(".page").requestFullscreen();
+    } catch {
+      toast("Fullscreen is unavailable in this browser.");
+    }
+  });
+  document.addEventListener("fullscreenchange", () => {
+    const active = Boolean(document.fullscreenElement);
+    fullscreenButton.setAttribute(
+      "aria-label",
+      active ? "Exit fullscreen" : "Enter fullscreen",
+    );
+    fullscreenButton.querySelector(".button-label").textContent = active
+      ? "Exit fullscreen"
+      : "Fullscreen";
+  });
   $("helpBtn").addEventListener("click", () => {
     cancelGesture();
     help.showModal();
@@ -375,6 +397,10 @@
     if (model.escaped !== previousEscaped) {
       $("remaining").textContent = model.total - model.escaped;
       $("escaped").textContent = model.escaped;
+      $("escapeProgress").max = model.total;
+      $("escapeProgress").value = model.escaped;
+      $("escapeProgress").textContent =
+        `${model.escaped} of ${model.total} ants escaped`;
       previousEscaped = model.escaped;
     }
     const time = formatTime(model.time);
@@ -384,6 +410,7 @@
     }
     if (model.won && !winShown) {
       winShown = true;
+      $("sessionState").textContent = "CLEARED";
       cancelGesture();
       $("winSummary").textContent =
         `${model.total} ants set free in ${formatTime(model.time)}.`;
@@ -419,7 +446,7 @@
           ctx,
           ant.x,
           ant.y,
-          0.85,
+          0.95,
           ant.angle,
           ant.phase + model.time * 18,
         );

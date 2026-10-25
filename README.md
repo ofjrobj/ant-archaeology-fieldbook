@@ -1,6 +1,6 @@
 # Out of line
 
-A playful ant-routing sandbox with ink drawings and soft colors. Break the trail and help every ant leave the garden.
+A leaf-green ant-routing game with articulated ants, a live escape meter, and six illustrated tools. Break the trail and help every ant leave the garden.
 
 - [Play](https://ofjrobj.github.io/ant-archaeology-fieldbook/)
 - [Edit in your browser](https://github.dev/ofjrobj/ant-archaeology-fieldbook)
@@ -19,7 +19,7 @@ Choose a tool and experiment on the field:
 | Scent  | Draw a directional lure toward an edge. |
 | Breeze | Hold to blow the ants along.            |
 
-Use the eraser to remove a tool, clear tools to empty the field, or start over. All four edges are exits. You win when all 120 ants leave.
+Use the eraser to remove a tool, clear tools to empty the field, or restart. Pause at any time or switch to fullscreen for a larger playing field. All four edges are exits. You win when all 120 ants leave.
 
 ## Edit with a live preview
 

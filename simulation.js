@@ -28,6 +28,16 @@
     };
   }
 
+  // Each ant keeps its own narrow lane, with a little slow side-to-side motion.
+  // Derive it from existing session data so older saved colonies need no migration.
+  function trailOffset(ant, time, phase) {
+    return (
+      (ant.personality / Math.PI - 1) * 11 +
+      Math.sin(phase * 3 + ant.personality) * 2.5 +
+      Math.sin(time * 0.55 + ant.personality * 2) * 2.5
+    );
+  }
+
   function create(options = {}) {
     const width = Math.max(200, Number(options.width) || 1000);
     const height = Math.max(160, Number(options.height) || 620);
@@ -56,21 +66,23 @@
     for (let id = 0; id < count; id++) {
       const phase = (id / count) * TAU;
       const speed = 42 + random() * 7;
+      const personality = random() * TAU;
+      const offset = trailOffset({ personality }, 0, phase);
       const angle = Math.atan2(
         model.orbit.ry * Math.cos(phase),
         -model.orbit.rx * Math.sin(phase),
       );
       model.ants.push({
         id,
-        x: model.orbit.x + Math.cos(phase) * model.orbit.rx,
-        y: model.orbit.y + Math.sin(phase) * model.orbit.ry,
+        x: model.orbit.x + Math.cos(phase) * (model.orbit.rx + offset),
+        y: model.orbit.y + Math.sin(phase) * (model.orbit.ry + offset),
         vx: Math.cos(angle) * speed,
         vy: Math.sin(angle) * speed,
         angle,
         phase,
         speed,
         travelAngle: angle,
-        personality: random() * TAU,
+        personality,
         escaped: false,
         released: false,
       });
@@ -224,16 +236,17 @@
       (ant.x - orbit.x) / orbit.rx,
     );
     ant.phase = phase;
+    const offset = trailOffset(ant, model.time, phase);
     const tx = -Math.sin(phase) * orbit.rx;
     const ty = Math.cos(phase) * orbit.ry;
     const n = length(tx, ty) || 1;
     return {
       x:
         (tx / n) * ant.speed +
-        (orbit.x + Math.cos(phase) * orbit.rx - ant.x) * 3.2,
+        (orbit.x + Math.cos(phase) * (orbit.rx + offset) - ant.x) * 3.2,
       y:
         (ty / n) * ant.speed +
-        (orbit.y + Math.sin(phase) * orbit.ry - ant.y) * 3.2,
+        (orbit.y + Math.sin(phase) * (orbit.ry + offset) - ant.y) * 3.2,
     };
   }
 

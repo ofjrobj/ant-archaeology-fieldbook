@@ -1,13 +1,13 @@
-/* Original field-book drawings in etched ink and faded earth pigments. */
+/* Original botanical drawings and anatomically articulated ants. */
 (() => {
   "use strict";
 
   const color = {
-    paper: "#eee2c5",
-    ink: "#28261f",
+    paper: "#f5f8ea",
+    ink: "#252b21",
     clay: "#9f482e",
-    sage: "#a29460",
-    blue: "#827b52",
+    sage: "#8d9a61",
+    blue: "#697c43",
     honey: "#b59650",
     rose: "#d7bb99",
   };
@@ -37,54 +37,80 @@
     ctx.lineJoin = "round";
     ctx.strokeStyle = color.ink;
     ctx.fillStyle = color.ink;
-    ctx.lineWidth = 0.85;
+    ctx.lineWidth = 0.7;
 
-    // Six jointed legs alternate as the ant walks.
+    // Alternating tripods: front and rear legs move opposite the middle leg.
+    const legRoots = [1.4, -0.2, -1.6];
+    const legKnees = [4.0, -0.3, -4.5];
+    const legFeet = [6.8, -1.2, -7.8];
     for (let side = -1; side <= 1; side += 2) {
       for (let leg = 0; leg < 3; leg++) {
-        const swing = Math.sin(phase + leg * 2.2 + (side === 1 ? Math.PI : 0));
-        const rootX = 2.3 - leg * 2.3;
-        const kneeX = rootX + (1 - leg) * 2 + swing * 1.2;
-        const toeX = kneeX + (1 - leg) * 2.3 - swing * 1.4;
+        const swing = Math.sin(
+          phase + (leg === 1 ? Math.PI : 0) + (side === 1 ? Math.PI : 0),
+        );
+        const kneeX = legKnees[leg] + swing * 0.75;
+        const toeX = legFeet[leg] - swing * 1.25;
+        const toeY = side * (6.7 - Math.max(0, swing) * 0.65);
         line(ctx, [
-          [rootX, side * 1.0],
-          [kneeX, side * (4.5 + swing * 0.5)],
-          [toeX, side * 7.3],
+          [legRoots[leg], side * 1.0],
+          [kneeX, side * 3.7],
+          [toeX, toeY],
+          [toeX + (leg === 0 ? 0.9 : -0.7), toeY + side * 0.4],
         ]);
         ctx.stroke();
       }
     }
 
-    ellipse(ctx, -6.0, 0, 4.7, 3.3);
+    // A narrow petiole connects the large gaster to the muscular thorax.
+    ctx.fillStyle = "#302f24";
+    ellipse(ctx, -3.1, 0, 1.1, 0.85);
     ctx.fill();
-    ellipse(ctx, -0.4, 0, 2.4, 1.7);
+    ctx.fillStyle = "#20251d";
+    ellipse(ctx, -7.0, 0, 4.5, 3.05, 0.02);
     ctx.fill();
-    ellipse(ctx, 4.1, 0, 2.7, 2.35);
+    ctx.fillStyle = "#39382a";
+    ellipse(ctx, -0.1, 0, 2.4, 1.65);
     ctx.fill();
-    ctx.lineWidth = 1.25;
-    line(ctx, [
-      [-4, 0],
-      [1.5, 0],
-      [3, 0],
-    ]);
-    ctx.stroke();
+    ctx.fillStyle = "#24291f";
+    ellipse(ctx, 4.6, 0, 2.65, 2.25, -0.04);
+    ctx.fill();
 
-    ctx.lineWidth = 0.7;
-    for (const side of [-1, 1]) {
-      const twitch = Math.sin(phase * 0.42) * 0.35;
-      line(ctx, [
-        [5.4, side * 1.5],
-        [7.7, side * (3.6 + twitch)],
-        [10.2, side * 3.5],
-      ]);
+    // Restrained reflected light makes the body rounded without heavy shadows.
+    ctx.fillStyle = "rgba(154,156,123,0.36)";
+    ellipse(ctx, -7.4, -1.15, 2.7, 0.65, -0.13);
+    ctx.fill();
+    ellipse(ctx, -0.2, -0.62, 1.25, 0.4, -0.08);
+    ctx.fill();
+    ellipse(ctx, 4.2, -0.85, 1.45, 0.48, -0.15);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(179,185,149,0.28)";
+    ctx.lineWidth = 0.45;
+    for (const offset of [-0.85, 1.05]) {
+      ctx.beginPath();
+      ctx.ellipse(-7 + offset, 0, 2.4, 2.7, 0, -1.03, 1.03);
       ctx.stroke();
     }
-    ctx.strokeStyle = color.paper;
-    ctx.globalAlpha = 0.44;
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    ctx.arc(-6, 0, 2.3, -1.85, -0.55);
-    ctx.stroke();
+
+    ctx.strokeStyle = color.ink;
+    ctx.lineWidth = 0.58;
+    for (const side of [-1, 1]) {
+      const twitch = Math.sin(phase * 0.42 + side * 0.8) * 0.42;
+      line(ctx, [
+        [6.0, side * 1.15],
+        [8.4, side * (3.1 + twitch)],
+        [11.0, side * (2.45 + twitch)],
+      ]);
+      ctx.stroke();
+      line(ctx, [
+        [6.7, side * 0.55],
+        [7.8, side * 0.75],
+        [7.55, side * 0.12],
+      ]);
+      ctx.stroke();
+      ctx.fillStyle = "#10150f";
+      ellipse(ctx, 4.25, side * 1.72, 0.57, 0.39, side * 0.2);
+      ctx.fill();
+    }
     ctx.restore();
   }
 
@@ -138,8 +164,8 @@
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
-    ctx.strokeStyle = "#756d46";
-    ctx.fillStyle = "rgba(111,101,60,0.17)";
+    ctx.strokeStyle = "#7c925b";
+    ctx.fillStyle = "rgba(130,158,94,0.16)";
     ctx.lineWidth = 0.85;
     ctx.beginPath();
     ctx.moveTo(0, 0);
@@ -166,59 +192,24 @@
     ctx.fillStyle = color.paper;
     ctx.fillRect(0, 0, width, height);
 
-    // Stable paper speckles: no flicker when the canvas is redrawn.
-    let seed = 1947;
-    const random = () => {
-      seed = (seed * 1664525 + 1013904223) >>> 0;
-      return seed / 4294967296;
-    };
-    ctx.fillStyle = color.ink;
-    for (let i = 0; i < 2800; i++) {
-      ctx.globalAlpha = 0.04 + random() * 0.1;
-      const radius = 0.25 + random() * 0.55;
-      ctx.beginPath();
-      ctx.arc(random() * width, random() * height, radius, 0, TAU);
-      ctx.fill();
-    }
-    // A few short fibers and imperfect press marks soften the clean canvas.
-    ctx.strokeStyle = "#827755";
-    ctx.lineWidth = 0.35;
-    for (let i = 0; i < 180; i++) {
-      const x = random() * width;
-      const y = random() * height;
-      ctx.globalAlpha = 0.06 + random() * 0.08;
-      line(ctx, [
-        [x, y],
-        [x + 1 + random() * 4, y + random() * 1.2],
-      ]);
-      ctx.stroke();
-    }
+    // A clean field keeps tiny ants readable; veins stay around the margins.
+    ctx.strokeStyle = "#91a975";
+    ctx.fillStyle = "#e1ebce";
+    ctx.lineWidth = 0.9;
+    ctx.globalAlpha = 0.4;
+    leaf(ctx, 12, height - 14, 152, -1.88, true);
+    leaf(ctx, width - 12, 14, 139, 1.24, true);
+    ctx.globalAlpha = 0.26;
+    sprig(ctx, width - 19, height - 15, 66, 0.46);
     ctx.globalAlpha = 1;
 
-    // The faint dotted oval recalls the trail the colony wants to follow.
-    ctx.strokeStyle = "rgba(111,101,60,0.28)";
+    // The faint dotted oval marks the colony's starting trail.
+    ctx.strokeStyle = "rgba(91,120,63,0.18)";
     ctx.lineWidth = 1;
     ctx.setLineDash([2, 7]);
     ellipse(ctx, width * 0.5, height * 0.5, width * 0.34, height * 0.25);
     ctx.stroke();
     ctx.setLineDash([]);
-
-    ctx.globalAlpha = 0.82;
-    sprig(ctx, 43, height - 27, 98, -0.23);
-    sprig(ctx, width - 45, 101, 82, 2.9);
-    sprig(ctx, width - 29, height - 26, 55, 0.65);
-    ctx.strokeStyle = color.clay;
-    ctx.lineWidth = 0.8;
-    [
-      [64, 54, 3.6],
-      [77, 61, 2.2],
-      [width - 83, height - 48, 3.7],
-      [width - 95, height - 38, 2],
-    ].forEach(([x, y, r]) => {
-      ellipse(ctx, x, y, r * 1.4, r, -0.3);
-      ctx.stroke();
-    });
-    ctx.globalAlpha = 1;
 
     // Four quiet escape points. Any screen edge remains a valid exit.
     [
@@ -230,7 +221,7 @@
       ctx.save();
       ctx.translate(x, y);
       ctx.rotate(angle);
-      ctx.strokeStyle = "rgba(111,101,60,0.65)";
+      ctx.strokeStyle = "rgba(87,117,58,0.62)";
       ctx.lineWidth = 1.3;
       line(ctx, [
         [-13, 0],
@@ -264,8 +255,8 @@
   function pebble(ctx, x, y, radius) {
     ctx.save();
     ctx.translate(x, y);
-    ctx.strokeStyle = "#635e45";
-    ctx.fillStyle = "#b5ac82";
+    ctx.strokeStyle = "#5d6844";
+    ctx.fillStyle = "#acb38b";
     ctx.lineWidth = 1.3;
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -305,7 +296,7 @@
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
-    ctx.strokeStyle = "rgba(238,226,197,0.75)";
+    ctx.strokeStyle = "rgba(245,248,234,0.75)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(-radius * 0.59, -radius * 0.25);
@@ -504,7 +495,7 @@
         ctx.lineTo(p.x + 0.01, p.y);
       }
       ctx.stroke();
-      ctx.strokeStyle = "rgba(238,226,197,0.50)";
+      ctx.strokeStyle = "rgba(245,248,234,0.50)";
       ctx.lineWidth = 0.8;
       ctx.setLineDash([3, 4, 12, 3]);
       for (const shift of [-2.4, 2.4]) {
@@ -515,7 +506,7 @@
         ctx.restore();
       }
     } else {
-      ctx.strokeStyle = "rgba(130,123,82,0.16)";
+      ctx.strokeStyle = "rgba(105,124,67,0.16)";
       ctx.lineWidth = 13;
       line(ctx, points);
       ctx.stroke();
@@ -562,7 +553,7 @@
         x,
         y,
         74,
-        "rgba(130,123,82,0.07)",
+        "rgba(105,124,67,0.07)",
         "rgba(112,102,63,0.44)",
         time,
       );
@@ -602,25 +593,25 @@
     `<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><g stroke-linecap="round" stroke-linejoin="round">${body}</g></svg>`;
   const icons = {
     barrier: svg(
-      '<path d="M8 30c6-8 5-16 12-17s8 3 12-4" stroke="#9f482e" stroke-width="7"/><path d="M7 29c7-8 6-15 13-15s9 2 12-3M10 31c5-7 6-16 11-15" stroke="#eee2c5" stroke-width=".7" opacity=".6"/>',
+      '<path d="M8 30c6-8 5-16 12-17s8 3 12-4" stroke="#9f482e" stroke-width="7"/><path d="M7 29c7-8 6-15 13-15s9 2 12-3M10 31c5-7 6-16 11-15" stroke="#f5f8ea" stroke-width=".7" opacity=".6"/>',
     ),
     pebble: svg(
-      '<path d="M8 25C5 20 10 9 19 8s15 6 15 13-9 12-15 11-9-3-11-7Z" fill="#b5ac82" stroke="#635e45" stroke-width="1.4"/><path d="M12 18c2-5 7-7 12-5" stroke="#eee2c5"/><path d="m23 28 3-5m1 4 3-5" stroke="#635e45" opacity=".5"/><path d="m10 23 4-5m-1 8 5-7m-2 10 6-8m-2 9 5-7m-14 2 13 3m-12-6 15 3" stroke="#635e45" stroke-width=".6"/>',
+      '<path d="M8 25C5 20 10 9 19 8s15 6 15 13-9 12-15 11-9-3-11-7Z" fill="#acb38b" stroke="#5d6844" stroke-width="1.4"/><path d="M12 18c2-5 7-7 12-5" stroke="#f5f8ea"/><path d="m23 28 3-5m1 4 3-5" stroke="#5d6844" opacity=".5"/><path d="m10 23 4-5m-1 8 5-7m-2 10 6-8m-2 9 5-7m-14 2 13 3m-12-6 15 3" stroke="#5d6844" stroke-width=".6"/>',
     ),
     lemon: svg(
-      '<ellipse cx="20" cy="20" rx="14" ry="13" fill="#b59650" stroke="#837044"/><ellipse cx="20" cy="20" rx="11" ry="10" fill="#d7c793"/><path d="m20 11 1 7 7-4-6 5 8 2-8 1 4 7-6-6-5 6 3-7-8-1 8-2-5-5 6 4Z" fill="#b59650"/><circle cx="20" cy="20" r="2" fill="#eee2c5"/><path d="m22 13 1 4m1-3 1 2m3 2-4 1m4 4-4-1m-2 5-1-4m-4 4 1-4m-5-1 4-1m-4-4 4 2m-1-6 2 4" stroke="#837044" stroke-width=".55"/>',
+      '<ellipse cx="20" cy="20" rx="14" ry="13" fill="#b59650" stroke="#837044"/><ellipse cx="20" cy="20" rx="11" ry="10" fill="#d7c793"/><path d="m20 11 1 7 7-4-6 5 8 2-8 1 4 7-6-6-5 6 3-7-8-1 8-2-5-5 6 4Z" fill="#b59650"/><circle cx="20" cy="20" r="2" fill="#f5f8ea"/><path d="m22 13 1 4m1-3 1 2m3 2-4 1m4 4-4-1m-2 5-1-4m-4 4 1-4m-5-1 4-1m-4-4 4 2m-1-6 2 4" stroke="#837044" stroke-width=".55"/>',
     ),
     sugar: svg(
       '<circle cx="20" cy="22" r="16" fill="#d7bb99" opacity=".65"/><path d="m7 15 8-4 8 4v10l-8 4-8-4Zm15-4 6-3 7 4v9l-7 4-6-4Z" fill="#f0e7cf" stroke="#77694e"/><path d="m15 19 8-4v10l-8 4Zm13-3 7-4v9l-7 4Z" fill="#c7b899"/><path d="m7 15 8 4 8-4m-8 4v10m7-18 6 5 7-4m-7 4v9" stroke="#77694e"/><path d="m13 27 7-3 7 4v8l-7 3-7-4Z" fill="#f0e7cf" stroke="#77694e"/><path d="m13 27 7 4 7-3m-7 3v8" stroke="#77694e"/><path d="m17 19 1 8m1-9 1 8m1-9 1 8m8-8 1 7m1-8 1 7m-10 7v7m2-8v7m-8-11 6-1m-6-2 6-1" stroke="#77694e" stroke-width=".5"/>',
     ),
     trail: svg(
-      '<path d="M7 30C5 14 22 31 23 18s7-9 10-10" stroke="#827b52" stroke-width="2.5" stroke-dasharray="1 5"/><path d="m26 7 7 1-1 7" stroke="#827b52" stroke-width="1.6"/>',
+      '<path d="M7 30C5 14 22 31 23 18s7-9 10-10" stroke="#697c43" stroke-width="2.5" stroke-dasharray="1 5"/><path d="m26 7 7 1-1 7" stroke="#697c43" stroke-width="1.6"/>',
     ),
     breeze: svg(
-      '<path d="M5 13h19c10 0 9-9 3-8M8 21h23c7 0 6-8 1-7M5 29h16c10 0 9 9 3 8" stroke="#827b52" stroke-width="1.8"/><path d="M8 17h8M12 25h11" stroke="#827b52" opacity=".35"/>',
+      '<path d="M5 13h19c10 0 9-9 3-8M8 21h23c7 0 6-8 1-7M5 29h16c10 0 9 9 3 8" stroke="#697c43" stroke-width="1.8"/><path d="M8 17h8M12 25h11" stroke="#697c43" opacity=".35"/>',
     ),
     eraser: svg(
-      '<path d="m9 29-3-5a3 3 0 0 1 0-4L22 6a3 3 0 0 1 4 0l8 8a3 3 0 0 1 0 4L22 30H10Z" fill="#eee2c5" stroke="#28261f" stroke-width="1.3"/><path d="m13 14 13 13 8-9a3 3 0 0 0 0-4l-8-8a3 3 0 0 0-4 0Z" fill="#d7bb99"/><path d="m13 14 13 13M8 34h24" stroke="#28261f" stroke-width="1.3"/>',
+      '<path d="m9 29-3-5a3 3 0 0 1 0-4L22 6a3 3 0 0 1 4 0l8 8a3 3 0 0 1 0 4L22 30H10Z" fill="#f5f8ea" stroke="#252b21" stroke-width="1.3"/><path d="m13 14 13 13 8-9a3 3 0 0 0 0-4l-8-8a3 3 0 0 0-4 0Z" fill="#d7bb99"/><path d="m13 14 13 13M8 34h24" stroke="#252b21" stroke-width="1.3"/>',
     ),
   };
 
@@ -667,12 +658,12 @@
       <clipPath id="ant-plate-abdomen"><path d="M37 80C40 64 57 59 75 64C87 67 94 75 94 85C93 97 79 109 60 107C42 106 33 94 37 80Z"/></clipPath>
       <clipPath id="ant-plate-body"><path d="M106 78C108 66 119 63 130 68C136 69 139 70 141 67C138 60 143 48 153 47C165 44 174 52 173 62C173 71 165 79 155 78L144 76C135 86 121 91 111 85Z"/></clipPath>
     </defs>
-    <g stroke="#28261f" stroke-linecap="round" stroke-linejoin="round">
+    <g stroke="#252b21" stroke-linecap="round" stroke-linejoin="round">
       <g stroke-width=".55" opacity=".60">
         <path d="M17 124h36M22 127h20M184 108h20M190 111h12"/>
         <path d="M20 51h23l11 9M182 36h19M179 38l-12 10" stroke-dasharray="1 2.5"/>
       </g>
-      <g fill="#28261f" stroke-width=".8">
+      <g fill="#252b21" stroke-width=".8">
         <path d="m115 72-23-24-25-12-22-12 21 15 24 12 22 25Z"/>
         <path d="m127 70-4-28 3-23 4-7-6 6-4 25 3 28Z"/>
         <path d="m135 74 23 16 25-2 16 8-15-11-25 2-21-17Z"/>
@@ -681,28 +672,28 @@
         <path d="m110 83-28 19-19 20-20 8 22-6 19-19 28-18Z"/>
       </g>
       <g stroke-width=".45" opacity=".8">${legSpines}</g>
-      <g stroke="#eee2c5" stroke-width=".5">
+      <g stroke="#f5f8ea" stroke-width=".5">
         <path d="m114 73-23-24-23-12M125 69l-3-26 4-24M137 74l22 15 24-2M132 81l16 26 29 14M120 84l-10 23-9 26M111 85l-28 19-19 19"/>
       </g>
-      <path d="M88 82C95 77 99 77 101 81C104 75 108 76 110 81L112 85C105 84 103 85 101 85C96 88 92 87 88 87Z" fill="#28261f" stroke-width="1.1"/>
-      <path d="M96 79q-2-7 2-8 3 0 3 8M104 78q0-6 3-5 2 0 2 5" fill="#28261f" stroke-width=".6"/>
-      <path d="M37 80C40 64 57 59 75 64C87 67 94 75 94 85C93 97 79 109 60 107C42 106 33 94 37 80Z" fill="#28261f" stroke-width="1.2"/>
-      <g clip-path="url(#ant-plate-abdomen)" stroke="#eee2c5" stroke-width=".65" opacity=".85">${abdomenHatch}
+      <path d="M88 82C95 77 99 77 101 81C104 75 108 76 110 81L112 85C105 84 103 85 101 85C96 88 92 87 88 87Z" fill="#252b21" stroke-width="1.1"/>
+      <path d="M96 79q-2-7 2-8 3 0 3 8M104 78q0-6 3-5 2 0 2 5" fill="#252b21" stroke-width=".6"/>
+      <path d="M37 80C40 64 57 59 75 64C87 67 94 75 94 85C93 97 79 109 60 107C42 106 33 94 37 80Z" fill="#252b21" stroke-width="1.2"/>
+      <g clip-path="url(#ant-plate-abdomen)" stroke="#f5f8ea" stroke-width=".65" opacity=".85">${abdomenHatch}
         <path d="M36 73Q57 60 85 74M35 78Q59 64 90 80M34 83Q61 68 93 85M35 88Q61 73 92 89M38 93Q63 80 89 95M44 99Q65 86 85 101" stroke-width=".42"/>
       </g>
-      <path d="M39 78C46 64 65 63 79 70" stroke="#eee2c5" stroke-width="1.2"/>
-      <path d="M106 78C108 66 119 63 130 68C136 69 139 70 141 67C138 60 143 48 153 47C165 44 174 52 173 62C173 71 165 79 155 78L144 76C135 86 121 91 111 85Z" fill="#eee2c5" stroke-width="1.3"/>
+      <path d="M39 78C46 64 65 63 79 70" stroke="#f5f8ea" stroke-width="1.2"/>
+      <path d="M106 78C108 66 119 63 130 68C136 69 139 70 141 67C138 60 143 48 153 47C165 44 174 52 173 62C173 71 165 79 155 78L144 76C135 86 121 91 111 85Z" fill="#f5f8ea" stroke-width="1.3"/>
       <g clip-path="url(#ant-plate-body)" stroke-width=".65">${bodyHatch}${bodyCrosshatch}
         <path d="M106 82q13 9 29-3M107 80q13 9 29-3M107 78q13 9 29-3M142 70q19 7 30-10M143 72q18 7 29-9M144 74q16 7 28-9"/>
       </g>
-      <path d="M110 74q7-9 16-4M144 56q8-9 18-5" stroke="#eee2c5" stroke-width="1.1"/>
+      <path d="M110 74q7-9 16-4M144 56q8-9 18-5" stroke="#f5f8ea" stroke-width="1.1"/>
       <path d="M134 72q5 2 8 1M137 78q-6 4-7 6" stroke-width="1"/>
-      <ellipse cx="160" cy="56" rx="3.4" ry="4.2" transform="rotate(24 160 56)" fill="#28261f"/>
-      <path d="m159 53 1 1" stroke="#eee2c5" stroke-width=".8"/>
+      <ellipse cx="160" cy="56" rx="3.4" ry="4.2" transform="rotate(24 160 56)" fill="#252b21"/>
+      <path d="m159 53 1 1" stroke="#f5f8ea" stroke-width=".8"/>
       <path d="M169 54 182 38 204 27M170 58 190 48 207 49" stroke-width="1.4"/>
       <path d="M171 53 182 36 204 25M171 57 190 46 207 47" stroke-width=".4"/>
       <path d="m204 27 3-3m0 25 3-1" stroke-width="2.1"/>
-      <path d="m172 65 8-2 3 5-8 4 4-5-6 1M170 72l5 3 5-2-5 5-6-3" fill="#28261f" stroke-width=".7"/>
+      <path d="m172 65 8-2 3 5-8 4 4-5-6 1M170 72l5 3 5-2-5 5-6-3" fill="#252b21" stroke-width=".7"/>
       <path d="m41 70-2-3m7 0-2-4m8 1-1-4m7 3v-4m7 5 1-4m8 6 1-3m10 9 3-2M42 101l-2 3m10 1-1 4m9-2v4m10-4 1 4m8-7 2 3" stroke-width=".5"/>
     </g>
     <g fill="#6e6347" font-family="Georgia,serif" font-style="italic" font-size="7">

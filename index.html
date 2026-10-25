@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#eee2c5" />
+    <meta name="theme-color" content="#596a3c" />
     <meta
       name="description"
       content="Break the trail. Make a little mess. Guide every ant out of the garden with six playful tools."
@@ -16,53 +16,75 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect rx='16' width='64' height='64' fill='%239f482e'/%3E%3Cpath d='M16 44 25 22 35 39 48 17' stroke='%23eee2c5' fill='none' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E"
     />
     <title>Out of line — a little ant game</title>
-    <link rel="stylesheet" href="style.css?v=4" />
+    <link rel="stylesheet" href="style.css?v=5" />
   </head>
   <body>
     <main class="page">
       <header class="masthead">
-        <a class="wordmark" href="#" aria-label="Out of line home"
-          ><span class="brand-mark" aria-hidden="true">↝</span> SMALL
-          INTERVENTIONS <span class="edition">PLAY STUDY № 01</span></a
-        >
+        <div class="game-brand">
+          <div class="ant-plate" id="antPlate" aria-hidden="true"></div>
+          <div>
+            <h1 id="title">Out of <em>line.</em></h1>
+            <p>Break the trail. Get every ant out.</p>
+          </div>
+        </div>
         <nav aria-label="Game controls">
-          <button id="helpBtn" class="text-button">
-            How to play <span aria-hidden="true">↗</span>
+          <button id="helpBtn" class="text-button" aria-label="How to play">
+            <span aria-hidden="true">?</span
+            ><span class="button-label">How to play</span>
           </button>
-          <button id="resetBtn" class="reset-button">
-            <span aria-hidden="true">↻</span> Start over
+          <button
+            id="fullscreenBtn"
+            class="text-button"
+            aria-label="Enter fullscreen"
+          >
+            <span aria-hidden="true">⛶</span
+            ><span class="button-label">Fullscreen</span>
+          </button>
+          <button id="resetBtn" class="reset-button" aria-label="Restart game">
+            <span aria-hidden="true">↻</span
+            ><span class="button-label">Restart</span>
           </button>
         </nav>
       </header>
 
-      <section class="intro" aria-labelledby="title">
-        <div class="intro-copy">
-          <div class="title-row">
-            <h1 id="title">Out of <em>line.</em></h1>
-          </div>
-          <p>Break the trail. Get every ant out.</p>
-        </div>
-        <div class="ant-plate" id="antPlate" aria-hidden="true"></div>
-      </section>
-      <div class="book-frieze" aria-hidden="true"></div>
-
       <section class="game-layout" aria-label="Ant garden game">
         <div class="board-column">
           <div class="board-heading">
-            <span class="garden-label"
-              ><i aria-hidden="true"></i> THE FIELD</span
-            >
+            <div class="level-label">
+              <span class="status-dot" aria-hidden="true"></span
+              ><span id="sessionState">IN PLAY</span
+              ><span class="level-name">The leaf</span>
+            </div>
             <div class="scoreboard" aria-label="Game progress">
-              <span><strong id="remaining">120</strong> in</span>
-              <span class="out-score"
-                ><strong id="escaped">0</strong> out
-                <span aria-hidden="true">↗</span></span
+              <span class="stat"
+                ><strong id="remaining">120</strong><span>LEFT</span></span
+              >
+              <span class="stat out-score"
+                ><strong id="escaped">0</strong><span>OUT</span></span
               >
               <span class="clock" id="timer" aria-label="Elapsed time"
                 >00:00</span
               >
+              <button
+                id="pauseBtn"
+                class="icon-button"
+                aria-label="Pause game"
+                title="Pause (Space)"
+              >
+                Ⅱ
+              </button>
             </div>
           </div>
+          <progress
+            id="escapeProgress"
+            class="escape-progress"
+            value="0"
+            max="120"
+            aria-label="Ants escaped"
+          >
+            0 of 120 ants escaped
+          </progress>
           <div class="field" id="field">
             <canvas
               id="terrain"
@@ -70,11 +92,10 @@
               aria-label="Ant garden. Choose a tool, then draw, click, or hold here. All four edges are exits. Arrow keys move a cursor; Enter uses the selected tool."
             ></canvas>
             <div class="edge-label top-edge" aria-hidden="true">
-              OPEN ENDS, NEW POSSIBILITIES
+              EVERY EDGE IS AN EXIT
             </div>
             <div class="pause-overlay" id="pauseOverlay" hidden>
-              <span>Take a breath.</span
-              ><button id="resumeBtn">Keep going →</button>
+              <span>Paused</span><button id="resumeBtn">Resume →</button>
             </div>
             <div
               class="win-panel"
@@ -84,11 +105,11 @@
               aria-labelledby="winTitle"
             >
               <span class="win-flower" aria-hidden="true">✳</span>
-              <span class="eyebrow">A BEAUTIFUL DISRUPTION</span>
-              <h2 id="winTitle">Everyone<br />found a way.</h2>
+              <span class="eyebrow">FIELD CLEARED</span>
+              <h2 id="winTitle">All ants out.</h2>
               <p id="winSummary">Every ant found a way out.</p>
               <button id="againBtn">
-                Make another mess <span aria-hidden="true">↗</span>
+                Play again <span aria-hidden="true">↗</span>
               </button>
             </div>
             <div
@@ -103,21 +124,14 @@
               <span class="hint-dot" aria-hidden="true"></span> Draw a wall
               across their path.
             </p>
-            <button
-              id="pauseBtn"
-              class="icon-button"
-              aria-label="Pause game"
-              title="Pause (Space)"
-            >
-              Ⅱ
-            </button>
+            <span class="mouse-hint" aria-hidden="true">CLICK / DRAG</span>
           </div>
         </div>
 
         <aside class="toolbox" aria-label="Your tools">
           <div class="toolbox-heading">
-            <h2>Instruments</h2>
-            <span aria-hidden="true">↙</span>
+            <h2>Your tools</h2>
+            <span class="tool-shortcuts" aria-hidden="true">1 — 6</span>
           </div>
           <div class="tools" id="tools"></div>
           <div class="toolbox-bottom">
@@ -129,14 +143,13 @@
               Clear tools <span aria-hidden="true">↺</span>
             </button>
           </div>
-          <div class="toolbox-note">
-            <span class="tiny-flower" aria-hidden="true">✽</span>
-            <p>No squishing.<br />Just a change of plans.</p>
-          </div>
+          <p class="toolbox-note">
+            <span aria-hidden="true">↗</span> Get all 120 ants off the leaf.
+          </p>
         </aside>
       </section>
       <footer class="page-footer">
-        <span>A SMALL EXPERIMENT IN COLLECTIVE DIRECTION</span
+        <span>120 ANTS · SIX TOOLS · FREE PLAY</span
         ><span>Follow less. Wander more.</span>
       </footer>
     </main>
@@ -169,11 +182,11 @@
           breeze.
         </p>
       </details>
-      <button id="startHelp" class="primary-button">Let's make a mess →</button>
+      <button id="startHelp" class="primary-button">Let's play →</button>
     </dialog>
-    <script src="story.js?v=4"></script>
-    <script src="simulation.js?v=4"></script>
-    <script src="art.js?v=4"></script>
-    <script src="game.js?v=4"></script>
+    <script src="story.js?v=5"></script>
+    <script src="simulation.js?v=5"></script>
+    <script src="art.js?v=5"></script>
+    <script src="game.js?v=5"></script>
   </body>
 </html>
