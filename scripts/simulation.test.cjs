@@ -447,3 +447,254 @@ test("all 2000 ants can be sent outside through actual gathering and breeze game
     "A won round does not start returning ants",
   );
 });
+
+test("a cup carries only the ants covered at pickup and releases them safely", () => {
+  const model = simulation.create({ count: 36, seed: 18 });
+  const pickup = { x: model.ants[0].x, y: model.ants[0].y };
+  const captured = simulation.captureCup(model, pickup, 70);
+  assert.ok(captured > 0 && captured < model.total);
+  const ids = [...model.cup.ids];
+  const other = model.ants.find((ant) => !ids.includes(ant.id));
+  simulation.moveCup(model, { x: other.x, y: other.y });
+  assert.deepEqual(
+    model.cup.ids,
+    ids,
+    "Moving a cup does not vacuum up more ants",
+  );
+  assert.equal(other.held, undefined);
+  const heldPositions = model.ants
+    .filter((ant) => ant.held)
+    .map((ant) => ({ x: ant.x, y: ant.y }));
+  advance(model, 1);
+  assert.deepEqual(
+    model.ants.filter((ant) => ant.held).map((ant) => ({ x: ant.x, y: ant.y })),
+    heldPositions,
+  );
+  assert.equal(
+    model.escaped,
+    0,
+    "Covered ants are still part of the on-screen colony",
+  );
+  assert.equal(simulation.releaseCup(model), 0);
+  assert.equal(model.cup, null);
+  assert.ok(model.ants.every((ant) => !ant.held));
+  assert.ok(
+    model.ants.every(
+      (ant) =>
+        ant.x >= 0 &&
+        ant.x <= model.width &&
+        ant.y >= 0 &&
+        ant.y <= model.height,
+    ),
+  );
+  assertValid(model);
+});
+
+test("cup cancellation restores pickup positions even after an off-screen drag", () => {
+  const model = simulation.create({ count: 36, seed: 18 });
+  simulation.captureCup(model, { x: model.ants[0].x, y: model.ants[0].y });
+  const origins = model.cup.offsets.map((offset) => ({
+    id: offset.id,
+    x: offset.originX,
+    y: offset.originY,
+  }));
+  const restored = JSON.parse(JSON.stringify(model));
+  simulation.moveCup(restored, { x: -35, y: 200 });
+  assert.equal(simulation.releaseCup(restored, { cancel: true }), 0);
+  assert.equal(restored.escaped, 0);
+  assert.equal(restored.cup, null);
+  for (const origin of origins) {
+    const ant = restored.ants.find((item) => item.id === origin.id);
+    assert.equal(ant.x, origin.x);
+    assert.equal(ant.y, origin.y);
+    assert.equal(ant.held, false);
+  }
+});
+
+test("cup-carried ants count as outside and return through the same edge after a minute", () => {
+  const model = simulation.create({
+    count: 3,
+    initialCount: 1,
+    arrivalRate: 0,
+    populationMode: true,
+    seed: 18,
+  });
+  const ant = model.ants[0];
+  assert.equal(simulation.captureCup(model, { x: ant.x, y: ant.y }), 1);
+  simulation.moveCup(model, { x: 1035, y: 300 });
+  assert.equal(simulation.releaseCup(model), 1);
+  assert.equal(model.escaped, 1);
+  assert.equal(model.active, 0);
+  assert.equal(ant.exitEdge, "right");
+  assert.equal(ant.returnAt, 60);
+  assert.equal(ant.held, false);
+  advance(model, 59.8);
+  assert.equal(ant.status, "outside");
+  advance(model, 0.3);
+  assert.equal(ant.status, "active");
+  assert.equal(model.escaped, 0);
+  assert.equal(model.active, 1);
+  assert.ok(ant.x > model.width - 30 && ant.x < model.width);
+  assertPopulation(model);
+});
+
+test("carrying the final ants outside triggers the same all-out win condition", () => {
+  const model = simulation.create({
+    count: 2,
+    initialCount: 1,
+    arrivalRate: 0.1,
+    populationMode: true,
+    seed: 18,
+  });
+  simulation.captureCup(model, { x: model.ants[0].x, y: model.ants[0].y });
+  simulation.moveCup(model, { x: -30, y: 300 });
+  simulation.releaseCup(model);
+  assert.equal(
+    model.won,
+    false,
+    "An ant still waiting to enter prevents a win",
+  );
+  advance(model, 10);
+  const last = model.ants.find((ant) => ant.status === "active");
+  assert.ok(last);
+  simulation.captureCup(model, { x: last.x, y: last.y });
+  simulation.moveCup(model, { x: model.width + 30, y: 300 });
+  assert.equal(simulation.releaseCup(model), 1);
+  assert.equal(model.won, true);
+  assert.equal(model.escaped, 2);
+  assert.equal(model.active, 0);
+  assert.equal(model.cup, null);
+  assertPopulation(model);
+});
+
+test("honey attracts ants from farther away than sugar", () => {
+  const honey = simulation.create({ count: 1, seed: 18 });
+  const sugar = simulation.create({ count: 1, seed: 18 });
+  simulation.applyTool(honey, "honey", [{ x: 400, y: 310 }]);
+  simulation.applyTool(sugar, "sugar", [{ x: 400, y: 310 }]);
+  advance(honey, 2);
+  advance(sugar, 2);
+  assert.ok(honey.ants[0].x < sugar.ants[0].x - 35);
+  assert.equal(honey.ants[0].released, true);
+});
+
+test("a brush pushes locally in its drag direction and does nothing while stationary", () => {
+  const baseline = simulation.create({ count: 2, seed: 18 });
+  const stationary = simulation.create({ count: 2, seed: 18 });
+  const brushed = simulation.create({ count: 2, seed: 18 });
+  const point = { x: baseline.ants[0].x, y: baseline.ants[0].y };
+  advance(baseline, 0.5);
+  advance(stationary, 0.5, { brush: { ...point, dx: 0, dy: 0 } });
+  advance(brushed, 0.5, { brush: { ...point, dx: -10, dy: 0 } });
+  assert.deepEqual(stationary, baseline);
+  assert.ok(brushed.ants[0].x < baseline.ants[0].x - 20);
+  assert.deepEqual(
+    brushed.ants[1],
+    baseline.ants[1],
+    "A distant ant is not affected by a local brush stroke",
+  );
+});
+
+test("resizing preserves the round, releases a cup, and rebuilds path geometry", () => {
+  const model = simulation.create({
+    count: 8,
+    initialCount: 3,
+    arrivalRate: 0,
+    populationMode: true,
+    seed: 18,
+  });
+  simulation.captureCup(model, { x: model.ants[0].x, y: model.ants[0].y }, 20);
+  simulation.moveCup(model, { x: 1035, y: 300 });
+  simulation.releaseCup(model);
+  simulation.applyTool(model, "barrier", [
+    { x: 800, y: 20 },
+    { x: 800, y: 600 },
+  ]);
+  simulation.applyTool(model, "honey", [{ x: 300, y: 200 }]);
+  advance(model, 0.2);
+  const oldPath = model.paths[0];
+  const active = model.ants.find((ant) => ant.status === "active");
+  simulation.captureCup(model, { x: active.x, y: active.y }, 20);
+  const before = JSON.parse(JSON.stringify(model));
+  simulation.moveCup(model, { x: -30, y: 300 });
+  simulation.resizeWorld(model, 2000, 1860);
+  assert.equal(model.cup, null);
+  assert.ok(model.ants.every((ant) => !ant.held));
+  assert.equal(model.time, before.time);
+  assert.equal(model.active, before.active);
+  assert.equal(model.reserve, before.reserve);
+  assert.equal(model.escaped, before.escaped);
+  assert.equal(model.ants[0].returnAt, before.ants[0].returnAt);
+  assert.equal(model.ants[0].exitX, before.ants[0].exitX * 2);
+  assert.equal(model.ants[0].exitY, before.ants[0].exitY * 3);
+  assert.equal(model.objects[0].x, 600);
+  assert.equal(model.objects[0].y, 600);
+  assert.equal(model.objects[0].radius, before.objects[0].radius);
+  assert.notEqual(model.paths[0], oldPath);
+  assert.deepEqual(model.paths[0].points, [
+    { x: 1600, y: 60 },
+    { x: 1600, y: 1800 },
+  ]);
+  assert.ok(
+    Math.abs(
+      Math.hypot(active.vx, active.vy) -
+        Math.hypot(before.ants[active.id].vx, before.ants[active.id].vy),
+    ) < 1e-8,
+  );
+  assert.equal(simulation.eraseAt(model, { x: 1600, y: 900 }, 5), true);
+  assert.equal(
+    model.paths.length,
+    0,
+    "The remapped wall can be erased at its new location",
+  );
+  assertPopulation(model);
+});
+
+test("all 2000 ants can be freed using only visible honey and cup tools", () => {
+  const model = simulation.create({
+    count: 2000,
+    initialCount: 200,
+    arrivalRate: 30,
+    returnDelay: 60,
+    populationMode: true,
+    seed: 18,
+  });
+  const gatheringPoint = { x: 500, y: 310 };
+  simulation.applyTool(model, "honey", [gatheringPoint]);
+  advance(model, 50);
+  assert.equal(model.escaped, 0);
+  assert.equal(model.active, 1700);
+  let carriedOutside = 0;
+  let trips = 0;
+  let firstReturnAt = Infinity;
+  while (!model.won && !model.lost && model.time < 100) {
+    const captured = simulation.captureCup(model, gatheringPoint, 70);
+    if (captured > 0) {
+      simulation.moveCup(model, { x: model.width + 40, y: 310 });
+      advance(model, 0.25); // Arrivals and uncaptured ants keep moving during a carry.
+      const released = simulation.releaseCup(model);
+      assert.equal(released, captured);
+      carriedOutside += released;
+      trips++;
+      for (const ant of model.ants) {
+        if (ant.status === "outside")
+          firstReturnAt = Math.min(firstReturnAt, ant.returnAt);
+      }
+    } else {
+      simulation.releaseCup(model);
+    }
+    assertPopulation(model);
+    assert.ok(model.ants.every((ant) => !ant.held));
+    advance(model, 0.75);
+  }
+  assert.ok(trips > 1, "The complete colony is carried out in several cup trips");
+  assert.equal(carriedOutside, 2000);
+  assert.equal(model.escaped, 2000);
+  assert.equal(model.active, 0);
+  assert.equal(model.reserve, 0);
+  assert.equal(model.won, true);
+  assert.equal(model.lost, false);
+  assert.ok(model.time < firstReturnAt, "Every ant is freed before the first return");
+  assert.equal(model.paths.length, 0);
+  assert.ok(model.objects.every((object) => object.type === "honey"));
+});
