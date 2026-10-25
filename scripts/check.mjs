@@ -31,6 +31,14 @@ for (const filename of scripts) {
 
 const html = await readFile(path.join(root, "index.html"), "utf8");
 const css = await readFile(path.join(root, "style.css"), "utf8");
+// Catch missing interface bindings before a live-reloaded page can fail at startup.
+const ids = new Set(
+  [...html.matchAll(/\bid=["']([^"']+)["']/g)].map((match) => match[1]),
+);
+const gameSource = await readFile(path.join(root, "game.js"), "utf8");
+for (const match of gameSource.matchAll(/\$\(["']([^"']+)["']\)/g)) {
+  if (!ids.has(match[1])) throw new Error(`Missing UI element: #${match[1]}`);
+}
 const references = new Set();
 for (const match of html.matchAll(/\b(?:src|href)\s*=\s*["']([^"']+)["']/gi))
   references.add(match[1]);

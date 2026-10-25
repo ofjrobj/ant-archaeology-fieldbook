@@ -236,3 +236,214 @@ test("a JSON session restore continues identically and remains winnable", () => 
   assert.equal(restored.escaped, restored.total);
   assert.equal(restored.won, true);
 });
+
+test("adding ants preserves the current round and survives a session restore", () => {
+  const model = simulation.create({ count: 120, seed: 18 });
+  simulation.applyTool(model, "sugar", [{ x: 500, y: 310 }]);
+  advance(model, 5);
+  const before = JSON.parse(JSON.stringify(model));
+  const restored = JSON.parse(JSON.stringify(model));
+
+  assert.equal(simulation.addAnts(model, 30), 30);
+  assert.equal(simulation.addAnts(restored, 30), 30);
+  assert.equal(model.total, 150);
+  assert.equal(model.time, before.time);
+  assert.equal(model.escaped, before.escaped);
+  assert.deepEqual(model.ants.slice(0, 120), before.ants);
+  assert.deepEqual(model.objects, before.objects);
+  assert.deepEqual(model.paths, before.paths);
+  assert.deepEqual(restored, model, "Restored rounds spawn the same new ants");
+  assert.equal(new Set(model.ants.map((ant) => ant.id)).size, model.total);
+  const added = model.ants.slice(120);
+  assert.ok(added.some((ant) => ant.x < 300));
+  assert.ok(added.some((ant) => ant.x > 700));
+  assert.ok(added.every((ant) => !ant.escaped && !ant.released));
+  advance(model, 2);
+  assertValid(model);
+
+  // Existing deployed sessions have no stored seed yet.
+  delete before.seed;
+  const legacyRestored = JSON.parse(JSON.stringify(before));
+  simulation.addAnts(before, 30);
+  simulation.addAnts(legacyRestored, 30);
+  assert.deepEqual(legacyRestored, before);
+});
+
+test("population additions respect the round cap and completed games", () => {
+  const model = simulation.create({ count: 120, seed: 18 });
+  assert.equal(simulation.addAnts(model, -2), 0);
+  assert.equal(simulation.addAnts(model, NaN), 0);
+  assert.equal(simulation.addAnts(model, Infinity), 0);
+  assert.equal(simulation.addAnts(model, 1000), 180);
+  assert.equal(model.total, 300);
+  assert.equal(simulation.addAnts(model, 30), 0);
+  advance(model, 10);
+  assertValid(model);
+  assert.equal(
+    model.escaped,
+    0,
+    "A larger idle colony still needs intervention",
+  );
+
+  const finished = simulation.create({ count: 1, seed: 18 });
+  simulation.applyTool(finished, "trail", [
+    { x: 840, y: 310 },
+    { x: 1040, y: 310 },
+  ]);
+  advance(finished, 10);
+  assert.equal(finished.won, true);
+  assert.equal(simulation.addAnts(finished, 30), 0);
+  assert.equal(finished.total, 1);
+});
+
+test("ants added during an escape remain part of the all-out win condition", () => {
+  const model = simulation.create({ count: 120, seed: 18 });
+  simulation.applyTool(model, "trail", [
+    { x: 500, y: 155 },
+    { x: 720, y: 120 },
+    { x: 1040, y: 120 },
+  ]);
+  advance(model, 20);
+  assert.ok(model.escaped > 0 && model.escaped < model.total);
+  const escapedBefore = model.escaped;
+  assert.equal(simulation.addAnts(model, 60), 60);
+  assert.equal(model.total, 180);
+  assert.equal(model.escaped, escapedBefore);
+  assert.equal(model.won, false);
+  advance(model, 50);
+  assertValid(model);
+  assert.equal(model.escaped, 180);
+  assert.equal(model.won, true);
+});
+
+function assertPopulation(model) {
+  assert.equal(model.ants.length, model.total);
+  assert.equal(
+    model.ants.filter((ant) => ant.status === "active").length,
+    model.active,
+  );
+  assert.equal(
+    model.ants.filter((ant) => ant.status === "waiting").length,
+    model.reserve,
+  );
+  assert.equal(
+    model.ants.filter((ant) => ant.status === "outside").length,
+    model.escaped,
+  );
+  assert.equal(model.active + model.reserve + model.escaped, model.total);
+  assert.ok(
+    model.ants.every((ant) => ant.escaped === (ant.status !== "active")),
+  );
+}
+
+test("the finite 2000-ant pool arrives gradually and loses only when every ant is inside", () => {
+  const model = simulation.create({
+    count: 2000,
+    initialCount: 200,
+    arrivalRate: 30,
+    returnDelay: 60,
+    populationMode: true,
+    seed: 18,
+  });
+  assertPopulation(model);
+  assert.equal(model.active, 200);
+  assert.equal(model.reserve, 1800);
+  assert.equal(model.escaped, 0, "Waiting ants do not count as escaped");
+  assert.equal(model.lost, false);
+  advance(model, 30);
+  assert.equal(model.active, 1100);
+  assert.equal(model.reserve, 900);
+  assert.equal(model.lost, false);
+  advance(model, 30);
+  assertPopulation(model);
+  assert.equal(model.active, 2000);
+  assert.equal(model.reserve, 0);
+  assert.equal(model.escaped, 0);
+  assert.equal(model.lost, true);
+  assert.equal(model.won, false);
+  const finishedTime = model.time;
+  advance(model, 2);
+  assert.equal(model.time, finishedTime, "Loss freezes the round");
+});
+
+test("each outside ant returns after 60 simulation seconds, including after restore", () => {
+  const model = simulation.create({
+    count: 6,
+    initialCount: 2,
+    arrivalRate: 0,
+    returnDelay: 60,
+    populationMode: true,
+    seed: 18,
+  });
+  simulation.applyTool(model, "trail", [
+    { x: 160, y: 310 },
+    { x: 1040, y: 310 },
+  ]);
+  while (model.escaped === 0 && model.time < 30) simulation.step(model, 1 / 60);
+  const outside = model.ants.find((ant) => ant.status === "outside");
+  assert.ok(outside);
+  assert.ok(Math.abs(outside.returnAt - model.time - 60) < 1e-8);
+  simulation.clearTools(model);
+  const checkpoint = JSON.parse(JSON.stringify(model));
+  simulation.step(model, 0);
+  assert.deepEqual(
+    model,
+    checkpoint,
+    "Paused time cannot cause arrivals or returns",
+  );
+  const restored = JSON.parse(JSON.stringify(model));
+  while (model.time < outside.returnAt - 0.05) {
+    simulation.step(model, 1 / 60);
+    simulation.step(restored, 1 / 60);
+  }
+  assert.equal(
+    outside.status,
+    "outside",
+    "The ant stays out for the full delay",
+  );
+  const beforeReturn = model.escaped;
+  for (let frame = 0; frame < 5; frame++) {
+    simulation.step(model, 1 / 60);
+    simulation.step(restored, 1 / 60);
+  }
+  assert.equal(outside.status, "active");
+  assert.equal(outside.returnAt, null);
+  assert.equal(model.escaped, beforeReturn - 1);
+  assert.ok(outside.x >= 0 && outside.x <= model.width);
+  assert.ok(outside.y >= 0 && outside.y <= model.height);
+  assertPopulation(model);
+  assert.deepEqual(restored, model);
+});
+
+test("all 2000 ants can be sent outside through actual gathering and breeze gameplay", () => {
+  const model = simulation.create({
+    count: 2000,
+    initialCount: 200,
+    arrivalRate: 30,
+    returnDelay: 60,
+    populationMode: true,
+    seed: 18,
+  });
+  simulation.applyTool(model, "sugar", [{ x: 500, y: 310 }]);
+  advance(model, 50);
+  assertPopulation(model);
+  assert.equal(model.active, 1700);
+  assert.equal(model.reserve, 300);
+  assert.equal(model.escaped, 0);
+  assert.equal(model.lost, false);
+  simulation.clearTools(model);
+  advance(model, 40, { breeze: { x: 500, y: 310 } });
+  assertPopulation(model);
+  assert.equal(model.reserve, 0);
+  assert.equal(model.active, 0);
+  assert.equal(model.escaped, 2000);
+  assert.equal(model.won, true);
+  assert.equal(model.lost, false);
+  const finishTime = model.time;
+  advance(model, 65);
+  assert.equal(
+    model.time,
+    finishTime,
+    "A won round does not start returning ants",
+  );
+});
