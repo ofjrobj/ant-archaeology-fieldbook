@@ -14,6 +14,7 @@
   const TAU = Math.PI * 2;
   const images = {};
   const toolAssets = {
+    observation: "assets/observation-tools.png",
     current: "assets/tools-3d.png",
     legacy: "assets/tool-sprites.png",
   };
@@ -29,14 +30,27 @@
     });
   const ready = Promise.all([
     loadImage("ground", "assets/leaf-surface.png"),
-    loadImage("tools", toolAssets.current).then(
-      (loaded) => loaded || loadImage("legacyTools", toolAssets.legacy),
+    loadImage("observation", toolAssets.observation).then(
+      (loaded) =>
+        loaded ||
+        loadImage("tools", toolAssets.current).then(
+          (fallback) => fallback || loadImage("legacyTools", toolAssets.legacy),
+        ),
     ),
   ]).then(([leaf, sprites]) => ({ leaf, sprites }));
   let antBody;
   const chalkPatterns = new WeakMap();
   let scentDrop;
   const pathDrops = new WeakMap();
+  const cupStarts = new WeakMap();
+  const observationCells = {
+    barrier: [0, 0],
+    pebble: [1, 0],
+    sugar: [2, 0],
+    honey: [0, 1],
+    cup: [1, 1],
+    brush: [2, 1],
+  };
   const spriteCells = {
     barrier: [0, 0],
     pebble: [1, 0],
@@ -52,20 +66,41 @@
     sugar: [1, 1],
   };
 
+  function spriteFor(type) {
+    if (images.observation && observationCells[type])
+      return {
+        image: images.observation,
+        cell: observationCells[type],
+        columns: 3,
+      };
+    // Chalk from the older set should never stand in for the new wooden twig.
+    if (
+      type === "barrier" ||
+      type === "honey" ||
+      type === "cup" ||
+      type === "brush"
+    )
+      return null;
+    if (images.tools && spriteCells[type])
+      return { image: images.tools, cell: spriteCells[type], columns: 3 };
+    if (images.legacyTools && legacyCells[type])
+      return { image: images.legacyTools, cell: legacyCells[type], columns: 2 };
+    return null;
+  }
+
   function drawSprite(ctx, type, x, y, size, angle = 0) {
-    const image = images.tools || images.legacyTools;
-    const cells = images.tools ? spriteCells : legacyCells;
-    if (!image || !cells[type]) return false;
-    const [column, row] = cells[type];
-    const cellWidth = image.naturalWidth / (images.tools ? 3 : 2);
+    const sprite = spriteFor(type);
+    if (!sprite) return false;
+    const { image, cell, columns } = sprite;
+    const cellWidth = image.naturalWidth / columns;
     const cellHeight = image.naturalHeight / 2;
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(angle);
     ctx.drawImage(
       image,
-      column * cellWidth,
-      row * cellHeight,
+      cell[0] * cellWidth,
+      cell[1] * cellHeight,
       cellWidth,
       cellHeight,
       -size / 2,
@@ -650,6 +685,14 @@
       )
         lemon(ctx, obj.x, obj.y, Math.min(r, 28));
     }
+    if (obj.type === "honey") {
+      scentAura(ctx, obj.x, obj.y, obj.range || 100, "249,212,124", time);
+      contactShadow(ctx, obj.x + 2, obj.y + 12, 28, 0.27);
+      if (!drawSprite(ctx, "honey", obj.x, obj.y, 76, -0.09)) {
+        if (!scentDrop) scentDrop = makeScentDrop();
+        ctx.drawImage(scentDrop, obj.x - 34, obj.y - 34, 68, 68);
+      }
+    }
     if (obj.type === "sugar") {
       scentAura(ctx, obj.x, obj.y, obj.range || 80, "249,237,190", -time);
       contactShadow(ctx, obj.x + 2, obj.y + 14, 29, 0.33);
@@ -688,7 +731,7 @@
     for (let i = 0; i < 620; i++) {
       const x = random() * 64;
       const y = random() * 64;
-      brush.fillStyle = i % 3 ? "rgba(255,214,163,.35)" : "rgba(63,29,13,.28)";
+      brush.fillStyle = i % 3 ? "rgba(207,177,122,.3)" : "rgba(34,23,14,.4)";
       brush.fillRect(x, y, 0.45 + random() * 1.2, 0.4 + random() * 0.7);
     }
     const pattern = ctx.createPattern(tile, "repeat");
@@ -724,16 +767,16 @@
       ctx.restore();
       trace();
       ctx.lineWidth = width + 1;
-      ctx.strokeStyle = "#825333";
+      ctx.strokeStyle = "#3e2d1e";
       ctx.stroke();
       ctx.save();
       ctx.translate(-0.7, -1.1);
       trace();
       ctx.lineWidth = width - 1;
-      ctx.strokeStyle = "#b77d50";
+      ctx.strokeStyle = "#745135";
       ctx.stroke();
       ctx.lineWidth = width * 0.58;
-      ctx.strokeStyle = "#d7a679";
+      ctx.strokeStyle = "#98764d";
       ctx.stroke();
       ctx.lineWidth = width - 1;
       ctx.strokeStyle = chalkPattern(ctx);
@@ -741,10 +784,46 @@
       ctx.translate(-0.5, -1.3);
       trace();
       ctx.lineWidth = 1.1;
-      ctx.strokeStyle = "rgba(255,224,184,.75)";
-      ctx.setLineDash([2, 1, 5, 2.5]);
+      ctx.strokeStyle = "rgba(199,168,115,.7)";
+      ctx.setLineDash([7, 2, 11, 4]);
       ctx.stroke();
       ctx.restore();
+      // Short broken branch stubs and knots make connected strokes read as wood.
+      ctx.setLineDash([]);
+      ctx.lineWidth = 3.3;
+      ctx.strokeStyle = "#65472c";
+      ctx.beginPath();
+      for (let i = 3; i < points.length - 1; i += 7) {
+        const a = point(points[i - 1]);
+        const b = point(points[i]);
+        const dx = b.x - a.x,
+          dy = b.y - a.y;
+        const n = Math.hypot(dx, dy) || 1;
+        const side = i % 2 ? -1 : 1;
+        ctx.moveTo(b.x, b.y);
+        ctx.lineTo(
+          b.x + (dx / n) * 4 - (dy / n) * side * 8,
+          b.y + (dy / n) * 4 + (dx / n) * side * 8,
+        );
+      }
+      ctx.stroke();
+      ctx.fillStyle = "#c1a06b";
+      for (let i = 3; i < points.length - 1; i += 7) {
+        const a = point(points[i - 1]);
+        const b = point(points[i]);
+        const dx = b.x - a.x,
+          dy = b.y - a.y;
+        const n = Math.hypot(dx, dy) || 1;
+        const side = i % 2 ? -1 : 1;
+        ellipse(
+          ctx,
+          b.x + (dx / n) * 4 - (dy / n) * side * 8,
+          b.y + (dy / n) * 4 + (dx / n) * side * 8,
+          1.5,
+          1,
+        );
+        ctx.fill();
+      }
     } else {
       trace();
       ctx.lineWidth = 5;
@@ -795,6 +874,131 @@
     ctx.restore();
   }
 
+  function drawCup(ctx, cup, time = 0, layer = "top") {
+    if (!cup) return;
+    const r = cup.radius || 70;
+    if (!cupStarts.has(cup)) cupStarts.set(cup, time);
+    const progress = Number.isFinite(cup.cardProgress)
+      ? Math.max(0, Math.min(1, cup.cardProgress))
+      : Math.max(0, Math.min(1, (time - cupStarts.get(cup)) / 0.55));
+    const slide = 1 - Math.pow(1 - progress, 3);
+    ctx.save();
+    ctx.translate(cup.x, cup.y);
+    if (layer === "bottom") {
+      contactShadow(ctx, 5, 13, r * 1.24, 0.27);
+      ctx.save();
+      ctx.rotate(-0.065);
+      const cardX = (1 - slide) * r * 2.45;
+      ctx.shadowColor = "rgba(24,36,16,.25)";
+      ctx.shadowBlur = 6;
+      ctx.shadowOffsetX = 2;
+      ctx.shadowOffsetY = 4;
+      ctx.fillStyle = "#eee9d7";
+      ctx.beginPath();
+      ctx.roundRect(cardX - r * 1.14, -r * 1.1, r * 2.3, r * 2.21, 4);
+      ctx.fill();
+      ctx.shadowColor = "transparent";
+      ctx.strokeStyle = "rgba(125,119,91,.3)";
+      ctx.lineWidth = 0.8;
+      ctx.stroke();
+      // Small paper fibres and the card's thin edge stay below the ants.
+      ctx.strokeStyle = "rgba(141,134,108,.17)";
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i < 9; i++) {
+        const xx = cardX + ((i * 23) % 130) - 64;
+        const yy = ((i * 37) % 126) - 63;
+        ctx.beginPath();
+        ctx.moveTo(xx, yy);
+        ctx.lineTo(xx + 5 + (i % 4), yy - 1);
+        ctx.stroke();
+      }
+      ctx.restore();
+    } else if (images.observation) {
+      // Use the same true-alpha glass as the tool. Its clear centre leaves the
+      // captured ants visible; the wider base sits just inside the card edges.
+      drawSprite(ctx, "cup", -r * 0.035, -r * 0.09, r * 3.05, 0);
+    } else {
+      // A clear, tapered fallback keeps contained ants visible if artwork fails.
+      const glass = ctx.createLinearGradient(-r, 0, r, 0);
+      glass.addColorStop(0, "rgba(210,239,231,.14)");
+      glass.addColorStop(0.18, "rgba(255,255,244,.035)");
+      glass.addColorStop(0.55, "rgba(230,248,235,.015)");
+      glass.addColorStop(0.87, "rgba(211,237,230,.045)");
+      glass.addColorStop(1, "rgba(220,244,233,.18)");
+      ctx.fillStyle = glass;
+      ellipse(ctx, 0, 0, r, r);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(44,78,65,.38)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(243,253,243,.85)";
+      ctx.lineWidth = 1.7;
+      ellipse(ctx, -0.8, -1.2, r - 1.5, r - 1.5);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(143,178,166,.5)";
+      ctx.lineWidth = 0.9;
+      ellipse(ctx, 0.3, 0.5, r - 4, r - 4);
+      ctx.stroke();
+      const topY = -r * 0.23;
+      ctx.strokeStyle = "rgba(74,106,93,.32)";
+      ctx.lineWidth = 1.6;
+      ellipse(ctx, 0, topY, r * 0.73, r * 0.65);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(252,255,246,.72)";
+      ctx.lineWidth = 1.2;
+      ellipse(ctx, -0.8, topY - 0.8, r * 0.7, r * 0.62);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,245,.66)";
+      ctx.lineCap = "round";
+      ctx.lineWidth = r * 0.043;
+      ctx.beginPath();
+      ctx.ellipse(-1, -1, r - 7, r - 7, 0, 3.45, 4.06);
+      ctx.stroke();
+      ctx.lineWidth = r * 0.022;
+      ctx.beginPath();
+      ctx.ellipse(1, 1, r - 8, r - 8, 0, 0.28, 0.86);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(214,241,231,.42)";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.73, topY);
+      ctx.quadraticCurveTo(-r * 0.93, r * 0.2, -r * 0.83, r * 0.5);
+      ctx.moveTo(r * 0.73, topY);
+      ctx.quadraticCurveTo(r * 0.94, r * 0.2, r * 0.83, r * 0.5);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  function brushFallback(ctx, x, y, angle) {
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(angle);
+    const wood = ctx.createLinearGradient(0, -46, 5, 13);
+    wood.addColorStop(0, "#d1a26a");
+    wood.addColorStop(0.5, "#a97a45");
+    wood.addColorStop(1, "#725335");
+    ctx.strokeStyle = wood;
+    ctx.lineWidth = 8;
+    ctx.lineCap = "round";
+    line(ctx, [
+      [0, -47],
+      [0, -9],
+    ]);
+    ctx.stroke();
+    ctx.fillStyle = "#b8bcb1";
+    ctx.fillRect(-5, -12, 10, 13);
+    ctx.lineWidth = 1;
+    for (let i = 0; i < 12; i++) {
+      ctx.strokeStyle = i % 3 ? "#d8bf89" : "#8e7854";
+      ctx.beginPath();
+      ctx.moveTo((i - 5.5) * 0.7, 0);
+      ctx.quadraticCurveTo((i - 5.5) * 1.3, 11, (i - 5.5) * 1.7, 24 + (i % 4));
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   function drawCursor(ctx, tool, x, y, time = 0, active = false) {
     ctx.save();
     ctx.globalAlpha = active ? 0.98 : 0.82;
@@ -809,6 +1013,40 @@
     } else if (tool === "sugar") {
       contactShadow(ctx, x + 2, y + 12, 24, 0.3);
       if (!drawSprite(ctx, tool, x, y, 67, 0.08)) cube(ctx, x, y, 17, -0.08);
+    } else if (tool === "honey") {
+      contactShadow(ctx, x + 2, y + 12, 26, 0.25);
+      if (!drawSprite(ctx, tool, x, y, 76, -0.09)) {
+        if (!scentDrop) scentDrop = makeScentDrop();
+        ctx.drawImage(scentDrop, x - 34, y - 34, 68, 68);
+      }
+    } else if (tool === "cup") {
+      if (!active) {
+        ctx.globalAlpha = 0.48;
+        ctx.strokeStyle = "#e6f2db";
+        ctx.lineWidth = 1.2;
+        ctx.setLineDash([5, 7]);
+        ellipse(ctx, x, y, 70, 70);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        drawSprite(ctx, "cup", x + 45, y - 46, 46, 0);
+      }
+    } else if (tool === "brush") {
+      const sweep = active ? Math.sin(time * 18) * 0.055 : 0;
+      contactShadow(ctx, x + 16, y - 9, 31, 0.21);
+      if (!drawSprite(ctx, "brush", x + 22, y - 27, 102, -0.05 + sweep))
+        brushFallback(ctx, x + 12, y - 18, 0.72 + sweep);
+      if (active) {
+        ctx.strokeStyle = "rgba(245,235,199,.28)";
+        ctx.lineWidth = 0.8;
+        for (let i = 0; i < 3; i++) {
+          const shift = (time * 22 + i * 5) % 17;
+          line(ctx, [
+            [x - 12 - shift, y + 5 + i * 4],
+            [x - 3 - shift, y + 8 + i * 4],
+          ]);
+          ctx.stroke();
+        }
+      }
     } else if (tool === "breeze") {
       ring(
         ctx,
@@ -838,8 +1076,19 @@
     } else if (tool === "barrier") {
       contactShadow(ctx, x + 13, y + 3, 22, 0.25);
       if (!drawSprite(ctx, tool, x + 12, y - 11, 57, -0.35)) {
-        ctx.strokeStyle = "#f1bb83";
-        ellipse(ctx, x, y, 7, 7);
+        ctx.strokeStyle = "#735334";
+        ctx.lineWidth = 8;
+        ctx.lineCap = "round";
+        line(ctx, [
+          [x, y + 2],
+          [x + 24, y - 27],
+        ]);
+        ctx.stroke();
+        ctx.lineWidth = 3;
+        line(ctx, [
+          [x + 12, y - 12],
+          [x + 5, y - 23],
+        ]);
         ctx.stroke();
       }
       ctx.fillStyle = "rgba(246,218,172,.8)";
@@ -892,19 +1141,34 @@
     ),
   };
 
+  icons.barrier = svg(
+    '<path d="m7 33 13-14L32 7M19 21l-4-12" stroke="#765536" stroke-width="6"/><path d="m8 31 11-12L30 8" stroke="#b3925f" stroke-width="1.4"/>',
+  );
+  icons.honey = svg(
+    '<path d="M7 29c2-9 8-18 18-20l8 6c-1 11-13 18-26 14Z" fill="#627d39"/><ellipse cx="21" cy="22" rx="10" ry="7" fill="#bc7b23" stroke="#e7ba4a"/><ellipse cx="18" cy="19" rx="4" ry="1.7" fill="#fff0b5"/>',
+  );
+  icons.cup = svg(
+    '<path d="M11 9h18l5 23c-5 5-23 5-28 0Z" fill="#e4f1e8" fill-opacity=".12" stroke="#b2c6b9" stroke-width="1.7"/><ellipse cx="20" cy="9" rx="9" ry="4" stroke="#e7eee2"/><ellipse cx="20" cy="32" rx="14" ry="5" stroke="#d7e4d7"/>',
+  );
+  icons.brush = svg(
+    '<path d="m29 5-11 18" stroke="#b68a53" stroke-width="7"/><path d="m15 20 7 4" stroke="#bcc3b7" stroke-width="7"/><path d="m15 22-8 11 10 2 7-10Z" fill="#d3bd87"/><path d="m16 24-5 9m8-7-4 9m7-9-4 8" stroke="#8e7854" stroke-width=".8"/>',
+  );
   const vectorIcons = { ...icons };
-  const spriteIcon = (column, row, legacy = false) =>
-    `<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><image href="${toolAssets[legacy ? "legacy" : "current"]}" width="${legacy ? 1024 : 1536}" height="1024" x="${-column * 512}" y="${-row * 512}"/></svg>`;
-  Object.entries(spriteCells).forEach(([key, cell]) => {
+  const spriteIcon = (column, row, pack = "observation") =>
+    `<svg viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><image href="${toolAssets[pack]}" width="${pack === "legacy" ? 1024 : 1536}" height="1024" x="${-column * 512}" y="${-row * 512}"/></svg>`;
+  Object.entries(observationCells).forEach(([key, cell]) => {
     icons[key] = spriteIcon(...cell);
   });
   ready.then(() => {
-    if (images.tools) return;
-    for (const key of Object.keys(spriteCells)) {
-      icons[key] =
-        images.legacyTools && legacyCells[key]
-          ? spriteIcon(...legacyCells[key], true)
-          : vectorIcons[key];
+    if (images.observation) return;
+    for (const key of Object.keys(observationCells)) {
+      if (key === "pebble" || key === "sugar") {
+        icons[key] = images.tools
+          ? spriteIcon(...spriteCells[key], "current")
+          : images.legacyTools
+            ? spriteIcon(...legacyCells[key], "legacy")
+            : vectorIcons[key];
+      } else icons[key] = vectorIcons[key];
     }
   });
 
@@ -1000,6 +1264,7 @@
     drawAnt,
     drawGround,
     drawObject,
+    drawCup,
     drawPath,
     drawCursor,
     icons,

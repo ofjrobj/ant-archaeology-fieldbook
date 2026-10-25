@@ -10,14 +10,16 @@ An interactive living leaf. Guide a population of 2,000 ants with six dimensiona
 
 Choose a tool and experiment on the field:
 
-| Tool   | Action                                  |
-| ------ | --------------------------------------- |
-| Chalk  | Draw walls to redirect the ants.        |
-| Pebble | Place an obstacle in their way.         |
-| Lemon  | Place a scent that repels nearby ants.  |
-| Sugar  | Gather ants around a sweet spot.        |
-| Scent  | Draw a directional lure toward an edge. |
-| Breeze | Hold to blow the ants along.            |
+| Tool   | Action                                              |
+| ------ | --------------------------------------------------- |
+| Twig   | Lay a physical barrier across the trail.            |
+| Pebble | Place an obstacle in their way.                     |
+| Sugar  | Gather ants around a sweet spot.                    |
+| Honey  | Draw a wider crowd toward a sweet drop.             |
+| Cup    | Cover a group, drag to any edge, release outside.   |
+| Brush  | Drag to gently sweep nearby ants in that direction. |
+
+The leaf starts empty of tools. The cup captures only ants underneath when you press; a card slides beneath them for transport. Release on the leaf to put them back. Pause, Escape, or switching tools safely puts a held group down. On a keyboard, use Enter to cover, arrows to carry, and Enter to release.
 
 Start with 200 ants. Another 30 arrive each second until all 2,000 have entered. All four screen edges are exits.
 
@@ -25,7 +27,11 @@ Start with 200 ants. Another 30 arrive each second until all 2,000 have entered.
 - All 2,000 outside at once: win.
 - Each escaped ant returns after 60 seconds of active play.
 
-Pause stops the simulation and leaf movement. The leaf gradually warms from green toward ochre and red as the active population rises above 500. Clearing tools preserves the population; restarting begins a fresh round. Sugar can gather a crowd, then a breeze can push them outward.
+Pause stops the simulation and leaf movement. The leaf gradually warms from green toward ochre and red as the active population rises above 500. Clearing tools preserves the population; restarting begins a fresh round. Gather with sugar or honey, then carry the group out with the cup. Ants carried out have the same 60-second return delay as ants that walk out.
+
+## Observation references
+
+The tools draw on [NC State's classroom Ant Picnic](https://studentsdiscover.org/lesson/ant-picnic/) (food baits), [Texas A&M's cup-and-card technique](https://citybugs.tamu.edu/2012/06/12/a-simple-technique-for-insect-removal/) (cover, slide a card underneath, carry outside), and [Cornell's small-invertebrate observation activity](https://www.css.cornell.edu/cwmi/compost/macroinvertebrates.html) (a soft paintbrush for moving small animals). Attraction distances, the brush's steering strength, and population timing are game rules, not measurements of real ant behavior. Twigs and pebbles work as physical barriers; the game no longer presents chalk or lemon as guaranteed repellents.
 
 ## Edit with a live preview
 

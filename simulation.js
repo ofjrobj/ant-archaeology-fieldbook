@@ -77,6 +77,7 @@
       ants: [],
       objects: [],
       paths: [],
+      cup: null,
       nextId: 1,
       orbit: {
         x: width / 2,
@@ -217,7 +218,7 @@
       });
       return true;
     }
-    if (!["pebble", "lemon", "sugar"].includes(type)) return false;
+    if (!["pebble", "lemon", "sugar", "honey"].includes(type)) return false;
     const point = cleanPoint(model, points[points.length - 1]);
     if (!point) return false;
     if (model.objects.length >= MAX_OBJECTS) model.objects.shift();
@@ -226,7 +227,14 @@
       type,
       x: point.x,
       y: point.y,
-      radius: type === "pebble" ? 27 : type === "lemon" ? 25 : 12,
+      radius:
+        type === "pebble"
+          ? 27
+          : type === "lemon"
+            ? 25
+            : type === "honey"
+              ? 16
+              : 12,
     });
     return true;
   }
@@ -352,8 +360,159 @@
   }
 
   function clearTools(model) {
+    releaseCup(model, { cancel: true });
     model.objects.length = 0;
     model.paths.length = 0;
+  }
+
+  // A cup covers the ants present when it is placed. Carrying it never scoops
+  // up additional ants along the route, and the held ants remain in the count.
+  function captureCup(model, point, radius = 70) {
+    if (model.won || model.lost || model.cup) return 0;
+    const p = cleanPoint(model, point);
+    if (!p) return 0;
+    const reach = clamp(Number(radius) || 70, 10, 200);
+    const cup = { x: p.x, y: p.y, radius: reach, ids: [], offsets: [] };
+    for (const ant of model.ants) {
+      if (ant.escaped || ant.held || length(ant.x - p.x, ant.y - p.y) > reach)
+        continue;
+      ant.held = true;
+      cup.ids.push(ant.id);
+      cup.offsets.push({
+        id: ant.id,
+        dx: ant.x - p.x,
+        dy: ant.y - p.y,
+        originX: ant.x,
+        originY: ant.y,
+      });
+    }
+    model.cup = cup;
+    return cup.ids.length;
+  }
+
+  function moveCup(model, point) {
+    if (!model.cup || model.won || model.lost) return false;
+    const p = cleanPoint(model, point);
+    if (!p) return false;
+    model.cup.x = p.x;
+    model.cup.y = p.y;
+    const byId = new Map(model.ants.map((ant) => [ant.id, ant]));
+    for (const offset of model.cup.offsets) {
+      const ant = byId.get(offset.id);
+      if (!ant || ant.escaped) continue;
+      ant.x = p.x + offset.dx;
+      ant.y = p.y + offset.dy;
+    }
+    return true;
+  }
+
+  function edgeAt(model, point) {
+    return point.x < 0
+      ? "left"
+      : point.x > model.width
+        ? "right"
+        : point.y < 0
+          ? "top"
+          : point.y > model.height
+            ? "bottom"
+            : null;
+  }
+
+  function markOutside(model, ant, edge = edgeAt(model, ant)) {
+    if (ant.escaped) return;
+    ant.held = false;
+    ant.escaped = true;
+    ant.status = "outside";
+    ant.exitEdge = edge;
+    ant.exitX = ant.x;
+    ant.exitY = ant.y;
+    ant.returnAt = model.populationMode ? model.time + model.returnDelay : null;
+    model.escaped++;
+    model.active = model.total - (model.reserve || 0) - model.escaped;
+  }
+
+  // Return the number carried outside. Cancellation restores the pickup points;
+  // an ordinary on-board release leaves the ants at their new safe positions.
+  function releaseCup(model, { cancel = false } = {}) {
+    const cup = model.cup;
+    if (!cup) return 0;
+    const cancelled = cancel || model.won || model.lost;
+    const exitEdge = cancelled ? null : edgeAt(model, cup);
+    const byId = new Map(model.ants.map((ant) => [ant.id, ant]));
+    let sentOutside = 0;
+    for (const offset of cup.offsets) {
+      const ant = byId.get(offset.id);
+      if (!ant) continue;
+      ant.held = false;
+      if (ant.escaped) continue;
+      if (exitEdge) {
+        ant.x = clamp(ant.x, 4, model.width - 4);
+        ant.y = clamp(ant.y, 4, model.height - 4);
+        if (exitEdge === "left") ant.x = -4;
+        else if (exitEdge === "right") ant.x = model.width + 4;
+        else if (exitEdge === "top") ant.y = -4;
+        else ant.y = model.height + 4;
+        markOutside(model, ant, exitEdge);
+        sentOutside++;
+      } else {
+        ant.x = clamp(cancelled ? offset.originX : ant.x, 4, model.width - 4);
+        ant.y = clamp(cancelled ? offset.originY : ant.y, 4, model.height - 4);
+      }
+    }
+    model.cup = null;
+    if (!model.lost && model.reserve === 0 && model.escaped === model.total)
+      model.won = true;
+    return sentOutside;
+  }
+
+  // Keep simulation units square when a responsive canvas changes shape.
+  // Fresh path objects deliberately invalidate the cached collision geometry.
+  function resizeWorld(model, width, height) {
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width < 200 ||
+      height < 160
+    )
+      return model;
+    releaseCup(model, { cancel: true });
+    const sx = width / model.width;
+    const sy = height / model.height;
+    if (sx === 1 && sy === 1) return model;
+    for (const ant of model.ants) {
+      ant.x *= sx;
+      ant.y *= sy;
+      if (Number.isFinite(ant.exitX)) ant.exitX *= sx;
+      if (Number.isFinite(ant.exitY)) ant.exitY *= sy;
+      const speed = length(ant.vx, ant.vy);
+      ant.angle = Math.atan2(ant.vy * sy, ant.vx * sx);
+      ant.vx = Math.cos(ant.angle) * speed;
+      ant.vy = Math.sin(ant.angle) * speed;
+      ant.travelAngle = Math.atan2(
+        Math.sin(ant.travelAngle) * sy,
+        Math.cos(ant.travelAngle) * sx,
+      );
+    }
+    for (const object of model.objects) {
+      object.x *= sx;
+      object.y *= sy;
+    }
+    model.paths = model.paths.map((path) => ({
+      ...path,
+      points: path.points.map((point) => ({
+        x: point.x * sx,
+        y: point.y * sy,
+      })),
+    }));
+    model.orbit = {
+      x: model.orbit.x * sx,
+      y: model.orbit.y * sy,
+      rx: model.orbit.rx * sx,
+      ry: model.orbit.ry * sy,
+    };
+    model.width = width;
+    model.height = height;
+    return model;
   }
 
   function orbitVelocity(model, ant) {
@@ -393,9 +552,9 @@
     let sugar = null;
     let sugarDistance = Infinity;
     for (const object of model.objects) {
-      if (object.type !== "sugar") continue;
+      if (object.type !== "sugar" && object.type !== "honey") continue;
       const d = length(ant.x - object.x, ant.y - object.y);
-      if (d < 390 && d < sugarDistance) {
+      if (d < (object.type === "honey" ? 470 : 390) && d < sugarDistance) {
         sugar = object;
         sugarDistance = d;
       }
@@ -404,9 +563,14 @@
       const n = sugarDistance || 1;
       const dx = (sugar.x - ant.x) / n;
       const dy = (sugar.y - ant.y) / n;
-      const speed = clamp((sugarDistance - 17) * 3, -25, ant.speed + 20);
+      const honey = sugar.type === "honey";
+      const speed = clamp(
+        (sugarDistance - (honey ? 11 : 17)) * (honey ? 4 : 3),
+        -25,
+        ant.speed + (honey ? 30 : 20),
+      );
       // Sugar makes a small moving gathering, rather than overlapping all ants.
-      const swirl = sugarDistance < 65 ? 13 : 0;
+      const swirl = sugarDistance < 65 ? (honey ? 7 : 13) : 0;
       desired = { x: dx * speed - dy * swirl, y: dy * speed + dx * swirl };
       affected = true;
     }
@@ -480,6 +644,26 @@
       }
     }
 
+    // The soft brush redirects only the small patch being swept. A stationary
+    // brush has no force; the caller supplies the current drag displacement.
+    const brush = input && input.brush;
+    if (
+      brush &&
+      Number.isFinite(brush.x) &&
+      Number.isFinite(brush.y) &&
+      Number.isFinite(brush.dx) &&
+      Number.isFinite(brush.dy)
+    ) {
+      const movement = length(brush.dx, brush.dy);
+      const distance = length(ant.x - brush.x, ant.y - brush.y);
+      if (movement > 0.01 && distance < 80) {
+        const force = 210 * (1 - distance / 80) * Math.min(1, movement / 4);
+        desired.x += (brush.dx / movement) * force;
+        desired.y += (brush.dy / movement) * force;
+        affected = true;
+      }
+    }
+
     // Small separation keeps gathered ants legible without driving an idle colony out.
     const cellX = Math.floor(ant.x / 26);
     const cellY = Math.floor(ant.y / 26);
@@ -488,7 +672,7 @@
         const neighbors = neighborGrid.get(cx * 4096 + cy);
         if (!neighbors) continue;
         for (const other of neighbors) {
-          if (other === ant || other.escaped) continue;
+          if (other === ant || other.escaped || other.held) continue;
           const dx = ant.x - other.x;
           const dy = ant.y - other.y;
           const squared = dx * dx + dy * dy;
@@ -657,7 +841,7 @@
   function buildNeighborGrid(ants) {
     const grid = new Map();
     for (const ant of ants) {
-      if (ant.escaped) continue;
+      if (ant.escaped || ant.held) continue;
       const key = Math.floor(ant.x / 26) * 4096 + Math.floor(ant.y / 26);
       const cell = grid.get(key);
       if (cell) cell.push(ant);
@@ -681,11 +865,14 @@
       model.time += substep;
       if (model.populationMode) {
         advancePopulation(model, substep);
-        if (model.lost) break;
+        if (model.lost) {
+          releaseCup(model, { cancel: true });
+          break;
+        }
       }
       const neighborGrid = buildNeighborGrid(model.ants);
       for (const ant of model.ants) {
-        if (ant.escaped) continue;
+        if (ant.escaped || ant.held) continue;
         const desired = steer(model, ant, input, neighborGrid);
         const response = 1 - Math.exp(-substep * 8);
         ant.vx += (desired.x - ant.vx) * response;
@@ -704,23 +891,7 @@
           ant.y < 0 ||
           ant.y > model.height
         ) {
-          ant.escaped = true;
-          ant.status = "outside";
-          ant.exitEdge =
-            ant.x < 0
-              ? "left"
-              : ant.x > model.width
-                ? "right"
-                : ant.y < 0
-                  ? "top"
-                  : "bottom";
-          ant.exitX = ant.x;
-          ant.exitY = ant.y;
-          ant.returnAt = model.populationMode
-            ? model.time + model.returnDelay
-            : null;
-          model.escaped++;
-          model.active--;
+          markOutside(model, ant);
         }
       }
       if (model.reserve === 0 && model.escaped === model.total) {
@@ -731,5 +902,16 @@
     return model;
   }
 
-  return { create, addAnts, step, applyTool, eraseAt, clearTools };
+  return {
+    create,
+    addAnts,
+    step,
+    applyTool,
+    eraseAt,
+    clearTools,
+    captureCup,
+    moveCup,
+    releaseCup,
+    resizeWorld,
+  };
 });

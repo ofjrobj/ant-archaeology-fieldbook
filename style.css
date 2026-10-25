@@ -172,6 +172,11 @@ a {
 .is-still .leaf-shade {
   animation-play-state: paused;
 }
+.page.is-carrying::after {
+  box-shadow:
+    inset 0 0 0 3px #f2e3ae99,
+    inset 0 0 40px #eed89144;
+}
 .page:fullscreen {
   background: #34572c;
 }

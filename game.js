@@ -9,7 +9,7 @@
   const canvas = $("terrain");
   const ctx = canvas.getContext("2d");
   const WORLD = { width: 1000, height: 620 };
-  const SAVE_KEY = "out-of-line-population-v2";
+  const SAVE_KEY = "out-of-line-observation-v3";
   const createModel = () =>
     physics.create({
       ...WORLD,
@@ -22,15 +22,16 @@
     });
   const help = $("helpDialog");
   let model = createModel();
-  let selected = "barrier";
+  let selected = "cup";
   let paused = false;
   let drawing = false;
   let pointerId = null;
   let points = [];
   let pointer = { x: 500, y: 310, visible: false };
-  let breeze = null;
+  let brush = null;
+  let brushUntil = 0;
   let keyboardDrawing = false;
-  let keyboardBreeze = false;
+  let keyboardBrush = false;
   let lastTime = 0;
   let displayTime = "";
   let previousPopulation = "";
@@ -45,11 +46,12 @@
     const saved = JSON.parse(sessionStorage.getItem(SAVE_KEY));
     if (
       saved &&
-      saved.version === 2 &&
+      saved.version === 3 &&
       saved.model?.populationMode === true &&
       saved.model?.total === config.count &&
       saved.model.width === WORLD.width &&
-      saved.model.height === WORLD.height &&
+      Number.isFinite(saved.model.height) &&
+      saved.model.height >= 160 &&
       Array.isArray(saved.model.ants) &&
       saved.model.ants.length === config.count &&
       saved.model.ants.every(
@@ -59,6 +61,7 @@
       Array.isArray(saved.model.paths)
     ) {
       model = saved.model;
+      physics.releaseCup(model, { cancel: true });
       selected = config.tools.some((tool) => tool.id === saved.selected)
         ? saved.selected
         : selected;
@@ -72,7 +75,7 @@
     try {
       sessionStorage.setItem(
         SAVE_KEY,
-        JSON.stringify({ version: 2, model, selected }),
+        JSON.stringify({ version: 3, model, selected }),
       );
     } catch {}
   }
@@ -85,14 +88,17 @@
     toastTimer = setTimeout(() => $("toast").classList.remove("visible"), 2200);
   }
   function cancelGesture() {
-    if (pointerId !== null && canvas.hasPointerCapture(pointerId))
-      canvas.releasePointerCapture(pointerId);
+    const capturedPointer = pointerId;
     pointerId = null;
+    if (capturedPointer !== null && canvas.hasPointerCapture(capturedPointer))
+      canvas.releasePointerCapture(capturedPointer);
+    physics.releaseCup(model, { cancel: true });
+    document.querySelector(".page").classList.remove("is-carrying");
     drawing = false;
     points = [];
-    breeze = null;
+    brush = null;
     keyboardDrawing = false;
-    keyboardBreeze = false;
+    keyboardBrush = false;
   }
   function selectTool(id) {
     cancelGesture();
@@ -147,7 +153,7 @@
     $("sessionState").textContent = "IN PLAY";
     previousPopulation = "";
     displayTime = "";
-    selectTool("barrier");
+    selectTool("cup");
     updateStats();
     save();
   }
@@ -209,7 +215,7 @@
 
   function worldPoint(event) {
     const rect = canvas.getBoundingClientRect();
-    return {
+    const point = {
       x: Math.max(
         -38,
         Math.min(
@@ -225,6 +231,14 @@
         ),
       ),
     };
+    // The thin edge target stays reachable on touch screens and inside a browser panel.
+    if (selected === "cup" && model.cup) {
+      if (event.clientX <= rect.left + 8) point.x = -1;
+      else if (event.clientX >= rect.right - 8) point.x = WORLD.width + 1;
+      if (event.clientY <= rect.top + 8) point.y = -1;
+      else if (event.clientY >= rect.bottom - 8) point.y = WORLD.height + 1;
+    }
+    return point;
   }
   function addPoint(point) {
     const last = points[points.length - 1];
@@ -234,6 +248,22 @@
   function placePoint(point) {
     if (selected === "eraser") physics.eraseAt(model, point, 38);
     else physics.applyTool(model, selected, [point]);
+  }
+  function coverAnts(point) {
+    const count = physics.captureCup(model, point);
+    document.querySelector(".page").classList.toggle("is-carrying", count > 0);
+  }
+  function putCupDown() {
+    const count = physics.releaseCup(model);
+    document.querySelector(".page").classList.remove("is-carrying");
+    if (count) toast(`${count.toLocaleString("en")} outside.`);
+  }
+  function sweep(from, to) {
+    const dx = to.x - from.x,
+      dy = to.y - from.y;
+    if (Math.hypot(dx, dy) < 0.5) return;
+    brush = { x: to.x, y: to.y, dx, dy };
+    brushUntil = model.time + 0.1;
   }
   const canPlay = () =>
     artReady && !paused && !model.won && !model.lost && !help.open;
@@ -252,31 +282,32 @@
     canvas.setPointerCapture(pointerId);
     pointer = { ...worldPoint(event), visible: true };
     drawing = true;
-    if (selected === "barrier" || selected === "trail")
-      points = [{ x: pointer.x, y: pointer.y }];
-    else if (selected === "breeze") breeze = { x: pointer.x, y: pointer.y };
+    if (selected === "barrier") points = [{ x: pointer.x, y: pointer.y }];
+    else if (selected === "cup") coverAnts(pointer);
+    else if (selected === "brush") brush = null;
     else placePoint(pointer);
     save();
   });
   canvas.addEventListener("pointermove", (event) => {
     if (!event.isPrimary || (drawing && event.pointerId !== pointerId)) return;
+    const previous = pointer;
     pointer = { ...worldPoint(event), visible: true };
     if (!drawing || !canPlay()) return;
-    if (selected === "barrier" || selected === "trail") addPoint(pointer);
-    else if (selected === "breeze") breeze = { x: pointer.x, y: pointer.y };
+    if (selected === "barrier") addPoint(pointer);
+    else if (selected === "cup") physics.moveCup(model, pointer);
+    else if (selected === "brush") sweep(previous, pointer);
     else if (selected === "eraser") physics.eraseAt(model, pointer, 38);
   });
   function finishPointer(event) {
     if (event.pointerId !== pointerId) return;
-    if (drawing && (selected === "barrier" || selected === "trail")) {
+    if (drawing && selected === "cup") {
+      pointer = { ...worldPoint(event), visible: true };
+      physics.moveCup(model, pointer);
+      putCupDown();
+    } else if (drawing && selected === "barrier") {
       addPoint(worldPoint(event));
       if (points.length >= 2) physics.applyTool(model, selected, points);
-      else
-        toast(
-          selected === "barrier"
-            ? "Drag to draw a wall."
-            : "Drag a scent trail toward an edge.",
-        );
+      else toast("Drag to lay a twig.");
     }
     cancelGesture();
     pointer.visible = event.pointerType !== "touch";
@@ -290,18 +321,19 @@
   });
   canvas.addEventListener("lostpointercapture", (event) => {
     if (event.pointerId !== pointerId) return;
-    drawing = false;
-    breeze = null;
-    points = [];
-    pointerId = null;
+    cancelGesture();
   });
   canvas.addEventListener("pointerleave", () => {
     if (!drawing) pointer.visible = false;
   });
   canvas.addEventListener("blur", () => {
-    if (!drawing) pointer.visible = false;
-    keyboardBreeze = false;
-    breeze = null;
+    if (!drawing) {
+      pointer.visible = false;
+      cancelGesture();
+      save();
+    }
+    keyboardBrush = false;
+    brush = null;
   });
 
   // Keyboard placement mirrors the pointer tools without an alternate game mode.
@@ -339,6 +371,7 @@
       event.preventDefault();
       const [dx, dy] = directions[event.key];
       const distance = event.shiftKey ? 45 : 18;
+      const previous = pointer;
       pointer = {
         x: Math.max(-30, Math.min(WORLD.width + 30, pointer.x + dx * distance)),
         y: Math.max(
@@ -348,12 +381,13 @@
         visible: true,
       };
       if (keyboardDrawing) addPoint(pointer);
-      if (keyboardBreeze) breeze = { x: pointer.x, y: pointer.y };
+      if (model.cup) physics.moveCup(model, pointer);
+      if (keyboardBrush) sweep(previous, pointer);
     } else if (event.key === "Enter") {
       event.preventDefault();
       pointer.visible = true;
       if (event.repeat) return;
-      if (selected === "barrier" || selected === "trail") {
+      if (selected === "barrier") {
         if (keyboardDrawing) {
           addPoint(pointer);
           physics.applyTool(model, selected, points);
@@ -365,9 +399,12 @@
           keyboardDrawing = true;
           toast("Move with arrow keys. Enter to finish.");
         }
-      } else if (selected === "breeze") {
-        keyboardBreeze = true;
-        breeze = { x: pointer.x, y: pointer.y };
+      } else if (selected === "cup") {
+        if (model.cup) putCupDown();
+        else coverAnts(pointer);
+        save();
+      } else if (selected === "brush") {
+        keyboardBrush = true;
       } else {
         placePoint(pointer);
         save();
@@ -375,9 +412,9 @@
     } else if (event.key === "Escape") cancelGesture();
   });
   document.addEventListener("keyup", (event) => {
-    if (event.key === "Enter" && keyboardBreeze) {
-      keyboardBreeze = false;
-      breeze = null;
+    if (event.key === "Enter" && keyboardBrush) {
+      keyboardBrush = false;
+      brush = null;
     }
   });
   window.addEventListener("blur", () => {
@@ -395,6 +432,15 @@
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+    const height = Math.max(160, (WORLD.width * rect.height) / rect.width);
+    if (Math.abs(model.height - height) > 0.1) {
+      cancelGesture();
+      pointer.y *= height / model.height;
+      physics.resizeWorld(model, WORLD.width, height);
+      ground = null;
+    }
+    WORLD.height = height;
     const ratio = Math.min(window.devicePixelRatio || 1, 1.5);
     canvas.width = Math.round(rect.width * ratio);
     canvas.height = Math.round(rect.height * ratio);
@@ -471,6 +517,7 @@
     ctx.clearRect(0, 0, WORLD.width, WORLD.height);
     for (const path of model.paths) art.drawPath(ctx, path, model.time);
     for (const object of model.objects) art.drawObject(ctx, object, model.time);
+    if (model.cup) art.drawCup(ctx, model.cup, model.time, "bottom");
     if (points.length > 1) {
       ctx.save();
       ctx.globalAlpha = 0.65;
@@ -489,38 +536,28 @@
           (model.active ?? 0) > 700 ? 0 : 1,
         );
     }
-    if (pointer.visible && canPlay()) {
+    if (model.cup) art.drawCup(ctx, model.cup, model.time, "top");
+    if (pointer.visible && canPlay() && !model.cup) {
       art.drawCursor(
         ctx,
         selected,
         pointer.x,
         pointer.y,
         model.time,
-        Boolean(breeze),
+        selected === "brush" && (drawing || keyboardBrush),
       );
-      if (breeze) {
-        ctx.save();
-        ctx.strokeStyle = "#827b52";
-        ctx.globalAlpha = 0.15;
-        ctx.lineWidth = 1.5;
-        for (let i = 0; i < 3; i++) {
-          const r = 25 + ((model.time * 70 + i * 37) % 120);
-          ctx.beginPath();
-          ctx.arc(breeze.x, breeze.y, r, 0, Math.PI * 2);
-          ctx.stroke();
-        }
-        ctx.restore();
-      }
     }
   }
   function frame(time) {
     const dt = lastTime ? Math.min((time - lastTime) / 1000, 0.1) : 0;
     lastTime = time;
     if (canPlay() && !document.hidden) {
-      // Small substeps keep fast moving ants from tunneling through a chalk wall.
+      // Small substeps keep fast moving ants from tunneling through a twig.
       const steps = Math.max(1, Math.ceil(dt / (1 / 60)));
       for (let i = 0; i < steps; i++)
-        physics.step(model, dt / steps, { breeze });
+        physics.step(model, dt / steps, {
+          brush: model.time < brushUntil ? brush : null,
+        });
       saveTime += dt;
       if (saveTime > 8) {
         saveTime = 0;
