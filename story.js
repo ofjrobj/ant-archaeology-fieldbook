@@ -1,8 +1,8 @@
 /* Edit the short on-screen copy and tool labels here. */
 window.ANT_CONFIG = {
   count: 2000,
-  initialCount: 200,
-  arrivalRate: 30,
+  initialCount: 0,
+  arrivalRate: 5,
   returnDelay: 60,
   tools: [
     {
@@ -24,16 +24,16 @@ window.ANT_CONFIG = {
     {
       id: "sugar",
       name: "Sugar",
-      action: "Gather a crowd",
-      hint: "Click to gather.",
+      action: "Gather a few nearby ants",
+      hint: "A small treat for nearby ants.",
       color: "#aa825b",
       key: "3",
     },
     {
       id: "honey",
       name: "Honey",
-      action: "Lure them closer",
-      hint: "Click to place a sweet drop.",
+      action: "Lure a few closer",
+      hint: "A sweet drop. Only some will follow.",
       color: "#b59650",
       key: "4",
     },

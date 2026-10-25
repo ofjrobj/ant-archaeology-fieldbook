@@ -9,7 +9,6 @@
   const canvas = $("terrain");
   const ctx = canvas.getContext("2d");
   const WORLD = { width: 1000, height: 620 };
-  const SAVE_KEY = "out-of-line-observation-v3";
   const createModel = () =>
     physics.create({
       ...WORLD,
@@ -23,6 +22,7 @@
   const help = $("helpDialog");
   let model = createModel();
   let selected = "cup";
+  let started = false;
   let paused = false;
   let drawing = false;
   let pointerId = null;
@@ -35,50 +35,11 @@
   let lastTime = 0;
   let displayTime = "";
   let previousPopulation = "";
-  let saveTime = 0;
   let toastTimer;
   let ground;
   let winShown = false;
-  let restored = false;
 
-  // A separate key preserves the original fieldbook's records during this redesign.
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(SAVE_KEY));
-    if (
-      saved &&
-      saved.version === 3 &&
-      saved.model?.populationMode === true &&
-      saved.model?.total === config.count &&
-      saved.model.width === WORLD.width &&
-      Number.isFinite(saved.model.height) &&
-      saved.model.height >= 160 &&
-      Array.isArray(saved.model.ants) &&
-      saved.model.ants.length === config.count &&
-      saved.model.ants.every(
-        (ant) => Number.isFinite(ant.x) && Number.isFinite(ant.y),
-      ) &&
-      Array.isArray(saved.model.objects) &&
-      Array.isArray(saved.model.paths)
-    ) {
-      model = saved.model;
-      physics.releaseCup(model, { cancel: true });
-      selected = config.tools.some((tool) => tool.id === saved.selected)
-        ? saved.selected
-        : selected;
-      restored = true;
-    }
-  } catch {
-    /* Storage is optional, including in private browsing. */
-  }
-
-  function save() {
-    try {
-      sessionStorage.setItem(
-        SAVE_KEY,
-        JSON.stringify({ version: 3, model, selected }),
-      );
-    } catch {}
-  }
+  // Every visit opens an empty leaf; a round begins only by choice.
   const formatTime = (seconds) =>
     `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(Math.floor(seconds) % 60).padStart(2, "0")}`;
   function toast(message) {
@@ -115,7 +76,6 @@
         tool?.hint || "Click or drag over a tool to erase it.",
       ),
     );
-    save();
   }
   $("tools").innerHTML = config.tools
     .map(
@@ -136,29 +96,42 @@
     cancelGesture();
     physics.clearTools(model);
     toast("Tools cleared.");
-    save();
   });
 
   function restart() {
     cancelGesture();
     model = createModel();
+    started = false;
     paused = false;
+    lastTime = 0;
+    pointer.visible = false;
     document.querySelector(".page").classList.remove("is-still");
     winShown = false;
     $("winPanel").hidden = true;
     $("pauseOverlay").hidden = true;
+    $("startGate").hidden = false;
+    $("pauseBtn").hidden = true;
     $("toast").classList.remove("visible");
     $("pauseBtn").textContent = "Ⅱ";
     $("pauseBtn").setAttribute("aria-label", "Pause game");
-    $("sessionState").textContent = "IN PLAY";
+    $("sessionState").textContent = "READY";
     previousPopulation = "";
     displayTime = "";
     selectTool("cup");
     updateStats();
-    save();
   }
+  function startGame() {
+    if (started || !artReady) return;
+    started = true;
+    lastTime = 0;
+    $("startGate").hidden = true;
+    $("pauseBtn").hidden = false;
+    $("sessionState").textContent = "IN PLAY";
+    canvas.focus({ preventScroll: true });
+  }
+  $("beginBtn").addEventListener("click", startGame);
   function togglePause(value = !paused) {
-    if (model.won || model.lost) return;
+    if (!started || model.won || model.lost) return;
     paused = value;
     document.querySelector(".page").classList.toggle("is-still", paused);
     cancelGesture();
@@ -199,7 +172,10 @@
     help.showModal();
   });
   $("closeHelp").addEventListener("click", () => help.close());
-  $("startHelp").addEventListener("click", () => help.close());
+  $("startHelp").addEventListener("click", () => {
+    help.close();
+    if (!started) startGame();
+  });
   help.addEventListener("click", (event) => {
     if (event.target === help) {
       const r = help.getBoundingClientRect();
@@ -266,7 +242,7 @@
     brushUntil = model.time + 0.1;
   }
   const canPlay = () =>
-    artReady && !paused && !model.won && !model.lost && !help.open;
+    started && artReady && !paused && !model.won && !model.lost && !help.open;
   canvas.addEventListener("pointerdown", (event) => {
     if (
       !canPlay() ||
@@ -286,7 +262,6 @@
     else if (selected === "cup") coverAnts(pointer);
     else if (selected === "brush") brush = null;
     else placePoint(pointer);
-    save();
   });
   canvas.addEventListener("pointermove", (event) => {
     if (!event.isPrimary || (drawing && event.pointerId !== pointerId)) return;
@@ -311,13 +286,11 @@
     }
     cancelGesture();
     pointer.visible = event.pointerType !== "touch";
-    save();
   }
   canvas.addEventListener("pointerup", finishPointer);
   canvas.addEventListener("pointercancel", (event) => {
     if (event.pointerId !== pointerId) return;
     cancelGesture();
-    save();
   });
   canvas.addEventListener("lostpointercapture", (event) => {
     if (event.pointerId !== pointerId) return;
@@ -330,7 +303,6 @@
     if (!drawing) {
       pointer.visible = false;
       cancelGesture();
-      save();
     }
     keyboardBrush = false;
     brush = null;
@@ -393,7 +365,6 @@
           physics.applyTool(model, selected, points);
           points = [];
           keyboardDrawing = false;
-          save();
         } else {
           points = [{ x: pointer.x, y: pointer.y }];
           keyboardDrawing = true;
@@ -402,12 +373,10 @@
       } else if (selected === "cup") {
         if (model.cup) putCupDown();
         else coverAnts(pointer);
-        save();
       } else if (selected === "brush") {
         keyboardBrush = true;
       } else {
         placePoint(pointer);
-        save();
       }
     } else if (event.key === "Escape") cancelGesture();
   });
@@ -419,16 +388,13 @@
   });
   window.addEventListener("blur", () => {
     cancelGesture();
-    save();
   });
   document.addEventListener("visibilitychange", () => {
     lastTime = 0;
     if (document.hidden) {
       cancelGesture();
-      save();
     }
   });
-  window.addEventListener("pagehide", save);
 
   function resize() {
     const rect = canvas.getBoundingClientRect();
@@ -501,7 +467,6 @@
         : "Every ant is here. Try another way.";
       $("winPanel").hidden = false;
       $("pauseOverlay").hidden = true;
-      save();
     }
   }
   function draw() {
@@ -558,11 +523,6 @@
         physics.step(model, dt / steps, {
           brush: model.time < brushUntil ? brush : null,
         });
-      saveTime += dt;
-      if (saveTime > 8) {
-        saveTime = 0;
-        save();
-      }
     }
     updateStats();
     draw();
@@ -581,9 +541,9 @@
     ground = null;
     lastTime = 0;
     $("assetLoading").hidden = true;
+    $("beginBtn").disabled = false;
     $("field").setAttribute("aria-busy", "false");
     resize();
   });
-  if (restored && !model.won && !model.lost) toast("Resumed.");
   requestAnimationFrame(frame);
 })();

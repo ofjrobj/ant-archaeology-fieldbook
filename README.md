@@ -14,14 +14,18 @@ Choose a tool and experiment on the field:
 | ------ | --------------------------------------------------- |
 | Twig   | Lay a physical barrier across the trail.            |
 | Pebble | Place an obstacle in their way.                     |
-| Sugar  | Gather ants around a sweet spot.                    |
-| Honey  | Draw a wider crowd toward a sweet drop.             |
+| Sugar  | Attract a few nearby ants to a small treat.         |
+| Honey  | Lure part of the nearby group toward a sweet drop.  |
 | Cup    | Cover a group, drag to any edge, release outside.   |
 | Brush  | Drag to gently sweep nearby ants in that direction. |
 
-The leaf starts empty of tools. The cup captures only ants underneath when you press; a card slides beneath them for transport. Release on the leaf to put them back. Pause, Escape, or switching tools safely puts a held group down. On a keyboard, use Enter to cover, arrows to carry, and Enter to release.
+Every visit opens an empty leaf with no ants or placed tools. Press **Begin** when ready; the game does not run while you are looking at the opening screen. Restart returns to that empty screen. A previous round is not automatically restored.
 
-Start with 200 ants. Another 30 arrive each second until all 2,000 have entered. All four screen edges are exits.
+The cup captures only ants underneath when you press; a card slides beneath them for transport. Release on the leaf to put them back. Pause, Escape, or switching tools safely puts a held group down. On a keyboard, use Enter to cover, arrows to carry, and Enter to release.
+
+Start with zero ants. Five arrive per second from the edges, one sixth of the previous arrival rate, until all 2,000 have entered. All four screen edges are exits.
+
+Food is a local lure, not a colony-wide command. Only some ants respond: sugar reaches 110 simulation units and attracts up to 45 ants; honey reaches 150 units and attracts up to 70. Other ants continue on their way. These limits apply per bait.
 
 - All 2,000 on the leaf at once: lose.
 - All 2,000 outside at once: win.
@@ -62,7 +66,7 @@ npm test
 npm run build
 ```
 
-The checks validate JavaScript syntax and local asset references. The simulation tests cover tool effects, population arrivals, 60-second returns, win/loss conditions, saved-state recovery, and a playable route for all 2,000 ants. The build creates static files in `dist/` and an offline, self-contained `dist/standalone.html`. Edit the source files, rather than generated copies.
+The checks validate JavaScript syntax and local asset references. The simulation tests cover empty starts, slow arrivals, limited food attraction, cup movement, 60-second returns, and win/loss conditions. The build creates static files in `dist/` and an offline, self-contained `dist/standalone.html`. Edit the source files, rather than generated copies.
 
 ## Publish changes
 

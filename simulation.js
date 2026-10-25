@@ -51,8 +51,15 @@
       1,
       populationMode ? MAX_POPULATION : MAX_ANTS,
     );
+    const requestedInitial = Number(options.initialCount ?? 200);
     const initialCount = populationMode
-      ? clamp(Math.floor(Number(options.initialCount) || 200), 1, count)
+      ? clamp(
+          Math.floor(
+            Number.isFinite(requestedInitial) ? requestedInitial : 200,
+          ),
+          0,
+          count,
+        )
       : count;
     const seed = Number(options.seed === undefined ? 1 : options.seed) >>> 0;
     const random = randomGenerator(seed);
@@ -235,6 +242,11 @@
             : type === "honey"
               ? 16
               : 12,
+      ...(type === "sugar"
+        ? { range: 110, capacity: 45 }
+        : type === "honey"
+          ? { range: 150, capacity: 70 }
+          : {}),
     });
     return true;
   }
@@ -361,6 +373,7 @@
 
   function clearTools(model) {
     releaseCup(model, { cancel: true });
+    for (const ant of model.ants) ant.baitId = null;
     model.objects.length = 0;
     model.paths.length = 0;
   }
@@ -377,6 +390,7 @@
       if (ant.escaped || ant.held || length(ant.x - p.x, ant.y - p.y) > reach)
         continue;
       ant.held = true;
+      ant.baitId = null;
       cup.ids.push(ant.id);
       cup.offsets.push({
         id: ant.id,
@@ -421,6 +435,7 @@
   function markOutside(model, ant, edge = edgeAt(model, ant)) {
     if (ant.escaped) return;
     ant.held = false;
+    ant.baitId = null;
     ant.escaped = true;
     ant.status = "outside";
     ant.exitEdge = edge;
@@ -536,7 +551,46 @@
     };
   }
 
-  function steer(model, ant, input, neighborGrid) {
+  // Food interests only some ants, and only nearby food is detectable. Allocate
+  // a small crowd once per substep so every bait has a real, bounded capacity.
+  function selectBaitAnts(model) {
+    const baits = model.objects.filter(
+      (object) => object.type === "sugar" || object.type === "honey",
+    );
+    const groups = new Map(baits.map((bait) => [bait.id, []]));
+    const assignments = new Map();
+    for (const ant of model.ants) {
+      ant.baitId = null;
+      if (ant.escaped || ant.held || baits.length === 0) continue;
+      const preference = ant.personality / TAU;
+      let closest = null;
+      let bestSquared = Infinity;
+      for (const bait of baits) {
+        const honey = bait.type === "honey";
+        if (preference >= (honey ? 0.45 : 0.35)) continue;
+        const radius = honey ? 150 : 110;
+        const squared = (ant.x - bait.x) ** 2 + (ant.y - bait.y) ** 2;
+        if (squared < radius * radius && squared < bestSquared) {
+          closest = bait;
+          bestSquared = squared;
+        }
+      }
+      if (closest) groups.get(closest.id).push({ ant, squared: bestSquared });
+    }
+    for (const bait of baits) {
+      const local = groups.get(bait.id);
+      local.sort((a, b) => a.squared - b.squared || a.ant.id - b.ant.id);
+      const capacity = bait.type === "honey" ? 70 : 45;
+      for (let index = 0; index < Math.min(capacity, local.length); index++) {
+        const ant = local[index].ant;
+        ant.baitId = bait.id;
+        assignments.set(ant.id, bait);
+      }
+    }
+    return assignments;
+  }
+
+  function steer(model, ant, input, neighborGrid, baitAssignments) {
     let desired;
     if (ant.released) {
       const angle =
@@ -549,17 +603,9 @@
       desired = orbitVelocity(model, ant);
     }
     let affected = false;
-    let sugar = null;
-    let sugarDistance = Infinity;
-    for (const object of model.objects) {
-      if (object.type !== "sugar" && object.type !== "honey") continue;
-      const d = length(ant.x - object.x, ant.y - object.y);
-      if (d < (object.type === "honey" ? 470 : 390) && d < sugarDistance) {
-        sugar = object;
-        sugarDistance = d;
-      }
-    }
+    const sugar = baitAssignments.get(ant.id);
     if (sugar) {
+      const sugarDistance = length(ant.x - sugar.x, ant.y - sugar.y);
       const n = sugarDistance || 1;
       const dx = (sugar.x - ant.x) / n;
       const dy = (sugar.y - ant.y) / n;
@@ -572,7 +618,8 @@
       // Sugar makes a small moving gathering, rather than overlapping all ants.
       const swirl = sugarDistance < 65 ? (honey ? 7 : 13) : 0;
       desired = { x: dx * speed - dy * swirl, y: dy * speed + dx * swirl };
-      affected = true;
+      // Food does not permanently release ants from their normal route. Ants
+      // that lose interest or cannot join a full bait simply continue walking.
     }
 
     let trail = null;
@@ -871,9 +918,10 @@
         }
       }
       const neighborGrid = buildNeighborGrid(model.ants);
+      const baitAssignments = selectBaitAnts(model);
       for (const ant of model.ants) {
         if (ant.escaped || ant.held) continue;
-        const desired = steer(model, ant, input, neighborGrid);
+        const desired = steer(model, ant, input, neighborGrid, baitAssignments);
         const response = 1 - Math.exp(-substep * 8);
         ant.vx += (desired.x - ant.vx) * response;
         ant.vy += (desired.y - ant.vy) * response;

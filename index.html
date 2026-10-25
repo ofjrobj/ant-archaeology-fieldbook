@@ -16,7 +16,7 @@
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect rx='16' width='64' height='64' fill='%239f482e'/%3E%3Cpath d='M16 44 25 22 35 39 48 17' stroke='%23eee2c5' fill='none' stroke-width='5' stroke-linecap='round'/%3E%3C/svg%3E"
     />
     <title>Out of line — a little ant game</title>
-    <link rel="stylesheet" href="style.css?v=12" />
+    <link rel="stylesheet" href="style.css?v=13" />
   </head>
   <body>
     <main class="page">
@@ -50,7 +50,7 @@
           <p class="objective">Get all 2,000 out.</p>
           <div class="scoreboard" aria-label="Game progress">
             <span class="stat"
-              ><strong id="remaining">200</strong
+              ><strong id="remaining">0</strong
               ><span>on leaf / 2,000</span></span
             >
             <span class="score-divider" aria-hidden="true">/</span>
@@ -59,12 +59,12 @@
             >
           </div>
           <p class="population-note">
-            <span id="approaching">1,800</span> coming
+            <span id="approaching">2,000</span> coming
             <span aria-hidden="true">·</span>
             <span id="returnNote">returns after 1 min</span>
           </p>
           <div class="field-time">
-            <span id="sessionState">IN PLAY</span
+            <span id="sessionState">READY</span
             ><span class="clock" id="timer" aria-label="Elapsed time"
               >00:00</span
             ><button
@@ -72,6 +72,7 @@
               class="icon-button"
               aria-label="Pause game"
               title="Pause (Space)"
+              hidden
             >
               Ⅱ
             </button>
@@ -101,6 +102,11 @@
               aria-label="Ant garden. Choose a tool, then draw, click, or hold here. All four edges are exits. Arrow keys move a cursor; Enter uses the selected tool."
             ></canvas>
             <span class="leaf-caption" aria-hidden="true"></span>
+            <div class="start-gate" id="startGate">
+              <button id="beginBtn" disabled>
+                Begin <span aria-hidden="true">→</span>
+              </button>
+            </div>
             <div class="pause-overlay" id="pauseOverlay" hidden>
               <span>Paused</span
               ><button id="resumeBtn">Let them wander →</button>
@@ -164,12 +170,13 @@
         All 2,000 outside at once: you win. All 2,000 on the leaf: you lose.
       </p>
       <p>
-        Ants arrive gradually. Each ant that leaves returns one minute later.
+        Begin on an empty leaf. Ants arrive slowly. Each ant that leaves returns
+        one minute later.
       </p>
       <div class="help-tip">
         <strong>Try this</strong
         ><span
-          >Gather with sugar. Cover with the cup.<br />Drag to an edge and
+          >Lure a few with sugar. Cover with the cup.<br />Drag to an edge and
           release.</span
         >
       </div>
@@ -184,9 +191,9 @@
       </details>
       <button id="startHelp" class="primary-button">Let's play →</button>
     </dialog>
-    <script src="story.js?v=12"></script>
-    <script src="simulation.js?v=12"></script>
-    <script src="art.js?v=12"></script>
-    <script src="game.js?v=12"></script>
+    <script src="story.js?v=13"></script>
+    <script src="simulation.js?v=13"></script>
+    <script src="art.js?v=13"></script>
+    <script src="game.js?v=13"></script>
   </body>
 </html>

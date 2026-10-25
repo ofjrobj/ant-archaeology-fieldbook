@@ -488,6 +488,26 @@ h1 em {
 }
 
 /* Pausing and completion leave the leaf visible around the message. */
+.start-gate {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  z-index: 3;
+}
+.start-gate button {
+  pointer-events: auto;
+  padding: 12px 10px;
+  font: 32px var(--book);
+  color: #f0edcf;
+  border-bottom: 1px solid #e0dfa580;
+  text-shadow: 0 2px 4px #1b351c;
+}
+.start-gate button:hover {
+  color: #fff9df;
+  border-color: currentColor;
+}
 .pause-overlay,
 .win-panel {
   position: absolute;
